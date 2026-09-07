@@ -5,6 +5,7 @@ import {
   ReactNode,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -32,29 +33,32 @@ export default function CartProvider({
   children: ReactNode;
 }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const hasLoadedCart = useRef(false);
 
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem(STORAGE_KEY);
+  try {
+    const savedCart = localStorage.getItem(STORAGE_KEY);
 
-      if (savedCart) {
-        setItems(JSON.parse(savedCart));
-      }
-    } catch {
-      console.error("Could not load the saved cart.");
+    if (savedCart) {
+      // The cart is browser-only data, so we intentionally restore it
+      // after the page hydrates.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setItems(JSON.parse(savedCart));
     }
+  } catch {
+    console.error("Could not load the saved cart.");
+  }
 
-    setLoaded(true);
-  }, []);
+  hasLoadedCart.current = true;
+}, []);
 
-  useEffect(() => {
-    if (!loaded) {
-      return;
-    }
+useEffect(() => {
+  if (!hasLoadedCart.current) {
+    return;
+  }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items, loaded]);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}, [items]);
 
   function addItem(item: AddCartItem) {
     const newItem: CartItem = {
