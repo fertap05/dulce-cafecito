@@ -1,6 +1,10 @@
+import Header from "@/components/Header";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#fff8f4] text-[#4a2d29]">
+      <Header />
+      
       <section className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
         <p className="mb-3 text-sm uppercase tracking-[0.3em] text-[#b76e79]">
           Coffee • Matcha • Refreshers
