@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { MenuItem } from "@/data/menu";
 
 type MenuCardProps = {
@@ -34,9 +35,12 @@ export default function MenuCard({ item }: MenuCardProps) {
 
         <div className="mt-6">
           {item.available ? (
-            <button className="w-full rounded-full bg-[#8e4d56] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#763d46]">
-              Customize
-            </button>
+            <Link
+                href={`/menu/${item.id}`}
+                className="block w-full rounded-full bg-[#8e4d56] px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-[#763d46]"
+                >
+                Customize
+            </Link>
           ) : (
             <button
               disabled
