@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useCart } from "@/components/CartProvider";
 import type { MenuItem } from "@/data/menu";
 
 type DrinkCustomizerProps = {
@@ -15,8 +16,23 @@ export default function DrinkCustomizer({
   const [coldFoam, setColdFoam] = useState("None");
   const [quantity, setQuantity] = useState(1);
   const [instructions, setInstructions] = useState("");
-
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
   const total = item.price * quantity;
+
+function handleAddToCart() {
+  addItem({
+    productId: item.id,
+    name: item.name,
+    unitPrice: item.price,
+    quantity,
+    milk,
+    coldFoam,
+    instructions,
+  });
+
+  setAdded(true);
+}
 
   return (
     <div>
@@ -160,11 +176,11 @@ export default function DrinkCustomizer({
       </div>
 
       <button
-        type="button"
-        className="mt-8 w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46]"
-      >
-        Add to Cart
-      </button>
+  type="button"
+  onClick={handleAddToCart}
+  className="mt-8 w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46]">
+  {added ? "Added to Cart ✓" : "Add to Cart"}
+    </button>
     </div>
   );
 }

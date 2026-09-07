@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CartButton from "@/components/CartButton";
 
 export default function Header() {
   return (
@@ -30,6 +31,8 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <CartButton />
+
           <Link
             href="/login"
             className="hidden text-sm text-[#76534e] transition hover:text-[#8e4d56] sm:block"
