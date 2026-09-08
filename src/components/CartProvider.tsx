@@ -25,7 +25,7 @@ const CartContext = createContext<CartContextValue | undefined>(
   undefined
 );
 
-const STORAGE_KEY = "dulce-cafecito-cart";
+const STORAGE_KEY = "dulce-cafecito-cart-v2";
 
 export default function CartProvider({
   children,

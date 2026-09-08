@@ -53,13 +53,21 @@ export default function CartContents() {
                     {item.name}
                   </h2>
 
-                  <p className="mt-3 text-sm text-[#76534e]">
-                    Milk: {item.milk}
-                  </p>
+                  {(item.selectedOptions ?? []).map(
+  (option) => (
+    <p
+      key={`${option.groupId}-${option.valueId}`}
+      className="mt-1 text-sm text-[#76534e]"
+    >
+      {option.groupName}:{" "}
+      {option.valueName}
 
-                  <p className="mt-1 text-sm text-[#76534e]">
-                    Cold Foam: {item.coldFoam}
-                  </p>
+      {option.priceDelta > 0 &&
+        ` (+$${option.priceDelta.toFixed(2)})`}
+    </p>
+  )
+)}
+
 
                   {item.instructions && (
                     <p className="mt-1 text-sm text-[#76534e]">

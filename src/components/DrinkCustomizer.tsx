@@ -3,35 +3,156 @@
 import { useState } from "react";
 
 import { useCart } from "@/components/CartProvider";
-import type { MenuItem } from "@/types/menu";
+
+import type {
+  MenuItemDetail,
+  ProductOptionGroup,
+} from "@/types/menu";
+
+import type {
+  SelectedCartOption,
+} from "@/types/cart";
+
 type DrinkCustomizerProps = {
-  item: MenuItem;
+  item: MenuItemDetail;
 };
+
+function createInitialSelections(
+  optionGroups: ProductOptionGroup[]
+) {
+  const initial: Record<number, number[]> = {};
+
+  optionGroups.forEach((group) => {
+    if (
+      group.selectionType === "single" &&
+      group.isRequired &&
+      group.values.length > 0
+    ) {
+      initial[group.id] = [group.values[0].id];
+    } else {
+      initial[group.id] = [];
+    }
+  });
+
+  return initial;
+}
 
 export default function DrinkCustomizer({
   item,
 }: DrinkCustomizerProps) {
-  const [milk, setMilk] = useState("Whole Milk");
-  const [coldFoam, setColdFoam] = useState("None");
-  const [quantity, setQuantity] = useState(1);
-  const [instructions, setInstructions] = useState("");
   const { addItem } = useCart();
-  const [added, setAdded] = useState(false);
-  const total = item.price * quantity;
 
-function handleAddToCart() {
-  addItem({
-    productId: item.id,
-    name: item.name,
-    unitPrice: item.price,
-    quantity,
-    milk,
-    coldFoam,
-    instructions,
+  const [quantity, setQuantity] = useState(1);
+
+  const [instructions, setInstructions] =
+    useState("");
+
+  const [added, setAdded] = useState(false);
+
+  const [selectedValueIds, setSelectedValueIds] =
+    useState<Record<number, number[]>>(() =>
+      createInitialSelections(item.optionGroups)
+    );
+
+  function selectSingleValue(
+    groupId: number,
+    valueId: number
+  ) {
+    setSelectedValueIds((current) => ({
+      ...current,
+      [groupId]: [valueId],
+    }));
+
+    setAdded(false);
+  }
+
+  function toggleMultipleValue(
+    groupId: number,
+    valueId: number
+  ) {
+    setSelectedValueIds((current) => {
+      const currentValues = current[groupId] ?? [];
+
+      const alreadySelected =
+        currentValues.includes(valueId);
+
+      return {
+        ...current,
+        [groupId]: alreadySelected
+          ? currentValues.filter(
+              (id) => id !== valueId
+            )
+          : [...currentValues, valueId],
+      };
+    });
+
+    setAdded(false);
+  }
+
+  const selectedOptions: SelectedCartOption[] = [];
+
+  item.optionGroups.forEach((group) => {
+    const selectedIds =
+      selectedValueIds[group.id] ?? [];
+
+    selectedIds.forEach((selectedId) => {
+      const value = group.values.find(
+        (candidate) =>
+          candidate.id === selectedId
+      );
+
+      if (!value) {
+        return;
+      }
+
+      selectedOptions.push({
+        groupId: group.id,
+        groupName: group.name,
+        valueId: value.id,
+        valueName: value.name,
+        priceDelta: value.priceDelta,
+      });
+    });
   });
 
-  setAdded(true);
-}
+  const optionsPrice = selectedOptions.reduce(
+    (total, option) =>
+      total + option.priceDelta,
+    0
+  );
+
+  const unitPrice = item.price + optionsPrice;
+
+  const total = unitPrice * quantity;
+
+  const missingRequiredOption =
+    item.optionGroups.some((group) => {
+      if (!group.isRequired) {
+        return false;
+      }
+
+      return (
+        (selectedValueIds[group.id] ?? [])
+          .length === 0
+      );
+    });
+
+  function handleAddToCart() {
+    if (missingRequiredOption) {
+      return;
+    }
+
+    addItem({
+      productId: item.id,
+      name: item.name,
+      unitPrice,
+      quantity,
+      selectedOptions,
+      instructions,
+    });
+
+    setAdded(true);
+  }
 
   return (
     <div>
@@ -53,61 +174,79 @@ function handleAddToCart() {
         {item.description}
       </p>
 
-      <div className="mt-10">
-        <h2 className="text-lg font-semibold">
-          Choose your milk
-        </h2>
+      {item.optionGroups.map((group) => (
+        <div
+          key={group.id}
+          className="mt-8"
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              {group.name}
+            </h2>
 
-        <div className="mt-4 grid gap-3">
-          {["Whole Milk", "Almond Milk", "Lactose-Free Milk"].map(
-            (option) => (
-              <label
-                key={option}
-                className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#ecd6d6] bg-white p-4"
-              >
-                <input
-                  type="radio"
-                  name="milk"
-                  value={option}
-                  checked={milk === option}
-                  onChange={(event) =>
-                    setMilk(event.target.value)
-                  }
-                />
+            {group.isRequired && (
+              <span className="text-xs text-[#b76e79]">
+                Required
+              </span>
+            )}
+          </div>
 
-                <span>{option}</span>
-              </label>
-            )
-          )}
+          <div className="mt-4 grid gap-3">
+            {group.values.map((value) => {
+              const selected =
+                (
+                  selectedValueIds[group.id] ?? []
+                ).includes(value.id);
+
+              return (
+                <label
+                  key={value.id}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-[#ecd6d6] bg-white p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type={
+                        group.selectionType ===
+                        "multiple"
+                          ? "checkbox"
+                          : "radio"
+                      }
+                      name={`option-${group.id}`}
+                      value={value.id}
+                      checked={selected}
+                      onChange={() => {
+                        if (
+                          group.selectionType ===
+                          "multiple"
+                        ) {
+                          toggleMultipleValue(
+                            group.id,
+                            value.id
+                          );
+                        } else {
+                          selectSingleValue(
+                            group.id,
+                            value.id
+                          );
+                        }
+                      }}
+                    />
+
+                    <span>{value.name}</span>
+                  </div>
+
+                  {value.priceDelta > 0 && (
+                    <span className="text-sm text-[#8e4d56]">
+                      +$
+                      {value.priceDelta.toFixed(2)}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold">
-          Cold Foam
-        </h2>
-
-        <div className="mt-4 grid gap-3">
-          {["None", "Vanilla", "Strawberry"].map((option) => (
-            <label
-              key={option}
-              className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#ecd6d6] bg-white p-4"
-            >
-              <input
-                type="radio"
-                name="coldFoam"
-                value={option}
-                checked={coldFoam === option}
-                onChange={(event) =>
-                  setColdFoam(event.target.value)
-                }
-              />
-
-              <span>{option}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+      ))}
 
       <div className="mt-8">
         <label
@@ -120,9 +259,13 @@ function handleAddToCart() {
         <textarea
           id="instructions"
           value={instructions}
-          onChange={(event) =>
-            setInstructions(event.target.value)
-          }
+          onChange={(event) => {
+            setInstructions(
+              event.target.value
+            );
+
+            setAdded(false);
+          }}
           placeholder="Less ice, no drizzle..."
           className="mt-4 min-h-28 w-full resize-none rounded-2xl border border-[#ecd6d6] bg-white p-4 outline-none transition focus:border-[#8e4d56]"
         />
@@ -137,11 +280,16 @@ function handleAddToCart() {
           <div className="mt-2 flex items-center gap-4">
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
                 setQuantity((current) =>
-                  Math.max(1, current - 1)
-                )
-              }
+                  Math.max(
+                    1,
+                    current - 1
+                  )
+                );
+
+                setAdded(false);
+              }}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-[#8e4d56]"
             >
               −
@@ -153,9 +301,14 @@ function handleAddToCart() {
 
             <button
               type="button"
-              onClick={() =>
-                setQuantity((current) => current + 1)
-              }
+              onClick={() => {
+                setQuantity(
+                  (current) =>
+                    current + 1
+                );
+
+                setAdded(false);
+              }}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-[#8e4d56]"
             >
               +
@@ -175,11 +328,15 @@ function handleAddToCart() {
       </div>
 
       <button
-  type="button"
-  onClick={handleAddToCart}
-  className="mt-8 w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46]">
-  {added ? "Added to Cart ✓" : "Add to Cart"}
-    </button>
+        type="button"
+        onClick={handleAddToCart}
+        disabled={missingRequiredOption}
+        className="mt-8 w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {added
+          ? "Added to Cart ✓"
+          : "Add to Cart"}
+      </button>
     </div>
   );
 }

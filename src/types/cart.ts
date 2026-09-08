@@ -1,11 +1,18 @@
+export type SelectedCartOption = {
+  groupId: number;
+  groupName: string;
+  valueId: number;
+  valueName: string;
+  priceDelta: number;
+};
+
 export type CartItem = {
   cartId: string;
   productId: number;
   name: string;
   unitPrice: number;
   quantity: number;
-  milk: string;
-  coldFoam: string;
+  selectedOptions: SelectedCartOption[];
   instructions: string;
 };
 
