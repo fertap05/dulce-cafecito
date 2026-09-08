@@ -149,12 +149,12 @@ export default function CartContents() {
           calculated during checkout.
         </p>
 
-        <button
-          type="button"
-          className="mt-7 w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white"
-        >
-          Continue to Checkout
-        </button>
+         <Link
+        href="/checkout"
+        className="mt-7 block w-full rounded-full bg-[#8e4d56] px-6 py-4 text-center font-medium text-white"
+        >   
+        Continue to Checkout
+        </Link>
 
         <button
           type="button"
