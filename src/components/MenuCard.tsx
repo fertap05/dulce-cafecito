@@ -1,6 +1,5 @@
 import Link from "next/link";
-import type { MenuItem } from "@/data/menu";
-
+import type { MenuItem } from "@/types/menu";
 type MenuCardProps = {
   item: MenuItem;
 };

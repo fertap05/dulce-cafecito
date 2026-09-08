@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 
 import DrinkCustomizer from "@/components/DrinkCustomizer";
 import Header from "@/components/Header";
-import { menuItems } from "@/data/menu";
+
+import { getMenuItemById } from "@/lib/menu";
 
 type DrinkPageProps = {
   params: Promise<{
@@ -11,12 +12,12 @@ type DrinkPageProps = {
   }>;
 };
 
-export default async function DrinkPage({ params }: DrinkPageProps) {
+export default async function DrinkPage({
+  params,
+}: DrinkPageProps) {
   const { id } = await params;
 
-  const item = menuItems.find(
-    (menuItem) => menuItem.id === Number(id)
-  );
+  const item = await getMenuItemById(Number(id));
 
   if (!item) {
     notFound();
@@ -45,7 +46,31 @@ export default async function DrinkPage({ params }: DrinkPageProps) {
             </span>
           </div>
 
-          <DrinkCustomizer item={item} />
+{item.available ? (
+  <DrinkCustomizer item={item} />
+) : (
+  <div className="rounded-3xl border border-[#ecd6d6] bg-white p-8">
+    <p className="text-sm uppercase tracking-[0.25em] text-[#b76e79]">
+      Currently Unavailable
+    </p>
+
+    <h1 className="mt-3 text-4xl font-semibold">
+      {item.name}
+    </h1>
+
+    <p className="mt-5 leading-7 text-[#76534e]">
+      This drink is currently sold out. Check back soon or
+      explore another Dulce Cafecito favorite.
+    </p>
+
+    <Link
+      href="/menu"
+      className="mt-8 inline-block rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white"
+    >
+      Back to Menu
+    </Link>
+  </div>
+)}
         </div>
       </section>
     </main>

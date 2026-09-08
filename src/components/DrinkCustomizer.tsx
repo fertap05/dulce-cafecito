@@ -3,8 +3,7 @@
 import { useState } from "react";
 
 import { useCart } from "@/components/CartProvider";
-import type { MenuItem } from "@/data/menu";
-
+import type { MenuItem } from "@/types/menu";
 type DrinkCustomizerProps = {
   item: MenuItem;
 };
