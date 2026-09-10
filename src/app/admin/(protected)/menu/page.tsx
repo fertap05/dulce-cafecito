@@ -1,3 +1,4 @@
+import ProductAvailabilityToggle from "@/components/admin/ProductAvailabilityToggle";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -81,78 +82,90 @@ export default async function AdminMenuPage() {
 
         <button
           type="button"
-          className="rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white"
+          className="rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#763d46]"
         >
           + Add Product
         </button>
       </div>
 
-      <div className="mt-10 overflow-hidden rounded-3xl border border-[#ecd6d6] bg-white">
-        <div className="grid grid-cols-[1fr_120px_130px_130px] gap-4 border-b border-[#ecd6d6] bg-[#fff8f7] px-6 py-4 text-sm font-medium text-[#76534e]">
-          <span>Product</span>
-          <span>Category</span>
-          <span>Price</span>
-          <span>Status</span>
-        </div>
-
-        {products.length === 0 ? (
-          <div className="p-10 text-center text-[#94716b]">
-            No products found.
+      <div className="mt-10 overflow-x-auto rounded-3xl border border-[#ecd6d6] bg-white">
+        <div className="min-w-[850px]">
+          <div className="grid grid-cols-[1fr_120px_110px_120px_160px] gap-4 border-b border-[#ecd6d6] bg-[#fff8f7] px-6 py-4 text-sm font-medium text-[#76534e]">
+            <span>Product</span>
+            <span>Category</span>
+            <span>Price</span>
+            <span>Status</span>
+            <span>Actions</span>
           </div>
-        ) : (
-          products.map((product) => {
-            const categoryRelation = Array.isArray(
-              product.categories
-            )
-              ? product.categories[0]
-              : product.categories;
 
-            const category =
-              categoryRelation?.name ?? "Other";
+          {products.length === 0 ? (
+            <div className="p-10 text-center text-[#94716b]">
+              No products found.
+            </div>
+          ) : (
+            products.map((product) => {
+              const categoryRelation = Array.isArray(
+                product.categories
+              )
+                ? product.categories[0]
+                : product.categories;
 
-            return (
-              <div
-                key={product.id}
-                className="grid grid-cols-[1fr_120px_130px_130px] gap-4 border-b border-[#f0dddd] px-6 py-5 last:border-b-0"
-              >
-                <div>
-                  <p className="font-semibold">
-                    {product.name}
-                  </p>
+              const category =
+                categoryRelation?.name ?? "Other";
 
-                  {product.description && (
-                    <p className="mt-1 max-w-xl text-sm text-[#94716b]">
-                      {product.description}
+              return (
+                <div
+                  key={product.id}
+                  className="grid grid-cols-[1fr_120px_110px_120px_160px] gap-4 border-b border-[#f0dddd] px-6 py-5 last:border-b-0"
+                >
+                  <div>
+                    <p className="font-semibold">
+                      {product.name}
                     </p>
-                  )}
-                </div>
 
-                <div className="flex items-center text-sm">
-                  {category}
-                </div>
+                    {product.description && (
+                      <p className="mt-1 max-w-xl text-sm text-[#94716b]">
+                        {product.description}
+                      </p>
+                    )}
+                  </div>
 
-                <div className="flex items-center font-semibold text-[#8e4d56]">
-                  $
-                  {(product.price_cents / 100).toFixed(
-                    2
-                  )}
-                </div>
+                  <div className="flex items-center text-sm">
+                    {category}
+                  </div>
 
-                <div className="flex items-center">
-                  {product.is_available ? (
-                    <span className="rounded-full bg-[#edf6ed] px-3 py-1 text-xs font-medium text-[#426b42]">
-                      Available
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-[#f9e5e8] px-3 py-1 text-xs font-medium text-[#8e4d56]">
-                      Sold Out
-                    </span>
-                  )}
+                  <div className="flex items-center font-semibold text-[#8e4d56]">
+                    $
+                    {(
+                      product.price_cents / 100
+                    ).toFixed(2)}
+                  </div>
+
+                  <div className="flex items-center">
+                    {product.is_available ? (
+                      <span className="rounded-full bg-[#edf6ed] px-3 py-1 text-xs font-medium text-[#426b42]">
+                        Available
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#f9e5e8] px-3 py-1 text-xs font-medium text-[#8e4d56]">
+                        Sold Out
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center">
+                    <ProductAvailabilityToggle
+                      productId={product.id}
+                      initialAvailable={
+                        product.is_available
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );
