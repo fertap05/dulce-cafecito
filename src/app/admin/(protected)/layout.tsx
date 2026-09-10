@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import type { ReactNode } from "react";
 
+import AdminShell from "@/components/admin/AdminShell";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -44,5 +45,9 @@ export default async function AdminLayout({
     redirect("/admin/login");
   }
 
-  return children;
+  return (
+    <AdminShell>
+      {children}
+    </AdminShell>
+  );
 }
