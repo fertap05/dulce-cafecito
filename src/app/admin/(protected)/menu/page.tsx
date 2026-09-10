@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ProductAvailabilityToggle from "@/components/admin/ProductAvailabilityToggle";
 import { createClient } from "@/lib/supabase/server";
 
@@ -153,14 +154,21 @@ export default async function AdminMenuPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center">
-                    <ProductAvailabilityToggle
-                      productId={product.id}
-                      initialAvailable={
-                        product.is_available
-                      }
-                    />
-                  </div>
+                  <div className="flex items-center gap-2">
+  <Link
+    href={`/admin/menu/${product.id}/edit`}
+    className="rounded-full border border-[#8e4d56] px-4 py-2 text-xs font-medium text-[#8e4d56] transition hover:bg-[#fff1f2]"
+  >
+    Edit
+  </Link>
+
+  <ProductAvailabilityToggle
+    productId={product.id}
+    initialAvailable={
+      product.is_available
+    }
+  />
+</div>
                 </div>
               );
             })
