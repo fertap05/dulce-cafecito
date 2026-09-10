@@ -1,7 +1,7 @@
 import Link from "next/link";
-import ProductAvailabilityToggle from "@/components/admin/ProductAvailabilityToggle";
 import { createClient } from "@/lib/supabase/server";
 
+import ProductAvailabilityToggle from "@/components/admin/ProductAvailabilityToggle";
 export const dynamic = "force-dynamic";
 
 type Product = {
@@ -81,12 +81,13 @@ export default async function AdminMenuPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#763d46]"
-        >
-          + Add Product
-        </button>
+        <Link
+  href="/admin/menu/new"
+  className="rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#763d46]"
+>
+  + Add Product
+</Link>
+
       </div>
 
       <div className="mt-10 overflow-x-auto rounded-3xl border border-[#ecd6d6] bg-white">
