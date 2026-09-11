@@ -1,3 +1,4 @@
+import SpecialDatesManager from "@/components/admin/SpecialDatesManager";
 import ScheduleManager from "@/components/admin/ScheduleManager";
 
 import { createClient } from "@/lib/supabase/server";
@@ -23,6 +24,23 @@ type BusinessSettings = {
 
 export default async function AdminSchedulePage() {
   const supabase = await createClient();
+
+  const {
+    data: scheduleExceptions,
+    error: scheduleExceptionsError,
+  } = await supabase
+    .from("schedule_exceptions")
+    .select(`
+      id,
+      exception_date,
+      is_closed,
+      open_time,
+      close_time,
+      public_note
+    `)
+    .order("exception_date", {
+      ascending: true,
+    });
 
   const [
     { data: hoursData, error: hoursError },
@@ -80,6 +98,13 @@ export default async function AdminSchedulePage() {
     );
   }
 
+  if (scheduleExceptionsError) {
+    console.error(
+      "Could not load schedule exceptions:",
+      scheduleExceptionsError
+    );
+  }
+
   return (
     <div>
       <div className="mb-10">
@@ -92,19 +117,21 @@ export default async function AdminSchedulePage() {
         </h1>
 
         <p className="mt-2 text-[#76534e]">
-          Manage business hours and pickup
-          settings.
+          Manage business hours and pickup settings.
         </p>
       </div>
 
       <ScheduleManager
         initialHours={
-          (hoursData ??
-            []) as BusinessHour[]
+          (hoursData ?? []) as BusinessHour[]
         }
         initialSettings={
           settingsData as BusinessSettings
         }
+      />
+
+      <SpecialDatesManager
+        exceptions={scheduleExceptions ?? []}
       />
     </div>
   );

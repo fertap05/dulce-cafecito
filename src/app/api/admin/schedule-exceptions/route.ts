@@ -3,6 +3,14 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
+type ScheduleExceptionBody = {
+  exception_date?: string;
+  is_closed?: boolean;
+  open_time?: string | null;
+  close_time?: string | null;
+  public_note?: string | null;
+};
+
 async function checkAdmin() {
   const supabase = await createClient();
 
@@ -38,26 +46,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
+    const body =
+      (await request.json()) as ScheduleExceptionBody;
 
     const {
-      exceptionDate,
-      isClosed,
-      openTime,
-      closeTime,
-      publicNote,
+      exception_date,
+      is_closed,
+      open_time,
+      close_time,
+      public_note,
     } = body;
 
-    if (!exceptionDate) {
+    if (!exception_date) {
       return NextResponse.json(
         { error: "A date is required." },
         { status: 400 }
       );
     }
 
+    const isClosed = is_closed ?? true;
+
     if (
       !isClosed &&
-      (!openTime || !closeTime)
+      (!open_time || !close_time)
     ) {
       return NextResponse.json(
         {
@@ -68,16 +79,36 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      !isClosed &&
+      open_time &&
+      close_time &&
+      open_time >= close_time
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Closing time must be after opening time.",
+        },
+        { status: 400 }
+      );
+    }
+
     const adminClient = createAdminClient();
 
     const { data, error } = await adminClient
       .from("schedule_exceptions")
       .insert({
-        exception_date: exceptionDate,
+        exception_date,
         is_closed: isClosed,
-        open_time: isClosed ? null : openTime,
-        close_time: isClosed ? null : closeTime,
-        public_note: publicNote?.trim() || null,
+        open_time: isClosed
+          ? null
+          : open_time,
+        close_time: isClosed
+          ? null
+          : close_time,
+        public_note:
+          public_note?.trim() || null,
       })
       .select()
       .single();
