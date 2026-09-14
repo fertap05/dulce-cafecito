@@ -14,6 +14,7 @@ type DashboardOrder = {
   pickup_time: string;
   total_cents: number;
   order_status: OrderStatus;
+  payment_status: string;
 };
 
 type ProductAlert = {
@@ -69,8 +70,11 @@ function formatTime(time: string) {
   const hour = Number(hourText);
   const minute = Number(minuteText);
 
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
+  const suffix =
+    hour >= 12 ? "PM" : "AM";
+
+  const displayHour =
+    hour % 12 || 12;
 
   return `${displayHour}:${String(
     minute
@@ -78,18 +82,28 @@ function formatTime(time: string) {
 }
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(
-    new Date(`${date}T12:00:00`)
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  ).format(
+    new Date(
+      `${date}T12:00:00`
+    )
   );
 }
 
-function statusLabel(status: OrderStatus) {
-  const labels: Record<OrderStatus, string> = {
+function statusLabel(
+  status: OrderStatus
+) {
+  const labels: Record<
+    OrderStatus,
+    string
+  > = {
     pending: "Pending",
     confirmed: "Confirmed",
     preparing: "Preparing",
@@ -101,7 +115,9 @@ function statusLabel(status: OrderStatus) {
   return labels[status];
 }
 
-function statusStyle(status: OrderStatus) {
+function statusStyle(
+  status: OrderStatus
+) {
   switch (status) {
     case "pending":
       return "bg-[#fff3dc] text-[#8a6426]";
@@ -124,7 +140,8 @@ function statusStyle(status: OrderStatus) {
 }
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient();
+  const supabase =
+    await createClient();
 
   const { data: settingsData } =
     await supabase
@@ -138,7 +155,9 @@ export default async function AdminDashboardPage() {
     "America/Chicago";
 
   const today =
-    getDateInTimeZone(timeZone);
+    getDateInTimeZone(
+      timeZone
+    );
 
   const [
     ordersResult,
@@ -154,12 +173,19 @@ export default async function AdminDashboardPage() {
         pickup_date,
         pickup_time,
         total_cents,
-        order_status
+        order_status,
+        payment_status
       `)
-      .eq("pickup_date", today)
-      .order("pickup_time", {
-        ascending: true,
-      }),
+      .eq(
+        "pickup_date",
+        today
+      )
+      .order(
+        "pickup_time",
+        {
+          ascending: true,
+        }
+      ),
 
     supabase
       .from("products")
@@ -169,12 +195,20 @@ export default async function AdminDashboardPage() {
         is_active,
         is_available
       `)
-      .eq("is_active", true)
-      .eq("is_available", false)
+      .eq(
+        "is_active",
+        true
+      )
+      .eq(
+        "is_available",
+        false
+      )
       .order("name"),
 
     supabase
-      .from("schedule_exceptions")
+      .from(
+        "schedule_exceptions"
+      )
       .select(`
         id,
         exception_date,
@@ -183,10 +217,16 @@ export default async function AdminDashboardPage() {
         close_time,
         public_note
       `)
-      .gte("exception_date", today)
-      .order("exception_date", {
-        ascending: true,
-      })
+      .gte(
+        "exception_date",
+        today
+      )
+      .order(
+        "exception_date",
+        {
+          ascending: true,
+        }
+      )
       .limit(4),
   ]);
 
@@ -204,7 +244,9 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  if (specialDatesResult.error) {
+  if (
+    specialDatesResult.error
+  ) {
     console.error(
       "Could not load special dates:",
       specialDatesResult.error
@@ -226,33 +268,83 @@ export default async function AdminDashboardPage() {
   const nonCancelledOrders =
     orders.filter(
       (order) =>
-        order.order_status !== "cancelled"
+        order.order_status !==
+        "cancelled"
     );
 
-  const todaysOrderValue =
-    nonCancelledOrders.reduce(
+  const completedOrders =
+    nonCancelledOrders.filter(
+      (order) =>
+        order.order_status ===
+        "completed"
+    );
+
+  const completedSalesCents =
+    completedOrders.reduce(
       (total, order) =>
-        total + order.total_cents,
+        total +
+        order.total_cents,
+      0
+    );
+
+  const paidOrders =
+    nonCancelledOrders.filter(
+      (order) =>
+        order.payment_status ===
+        "paid"
+    );
+
+  const collectedCents =
+    paidOrders.reduce(
+      (total, order) =>
+        total +
+        order.total_cents,
+      0
+    );
+
+  const pendingPaymentOrders =
+    nonCancelledOrders.filter(
+      (order) =>
+        order.payment_status !==
+        "paid"
+    );
+
+  const pendingPaymentCents =
+    pendingPaymentOrders.reduce(
+      (total, order) =>
+        total +
+        order.total_cents,
       0
     );
 
   const pendingOrders =
     orders.filter(
       (order) =>
-        order.order_status === "pending"
+        order.order_status ===
+        "pending"
     ).length;
 
   const readyOrders =
     orders.filter(
       (order) =>
-        order.order_status === "ready"
+        order.order_status ===
+        "ready"
     ).length;
+
+  const completedUnpaidOrders =
+    completedOrders.filter(
+      (order) =>
+        order.payment_status !==
+        "paid"
+    );
 
   const upcomingOrders =
     orders.filter(
       (order) =>
-        order.order_status !== "cancelled" &&
-        order.order_status !== "completed"
+        order.order_status !==
+          "cancelled" &&
+        order.order_status !==
+          "completed"
     );
 
   return (
@@ -268,8 +360,9 @@ export default async function AdminDashboardPage() {
           </h1>
 
           <p className="mt-2 text-[#76534e]">
-            Here&apos;s what&apos;s happening
-            with the business today.
+            Here&apos;s what&apos;s
+            happening with the
+            business today.
           </p>
         </div>
 
@@ -286,42 +379,111 @@ export default async function AdminDashboardPage() {
           </p>
 
           <p className="mt-2 text-3xl font-semibold">
-            {nonCancelledOrders.length}
+            {
+              nonCancelledOrders.length
+            }
+          </p>
+
+          <p className="mt-2 text-xs text-[#94716b]">
+            {pendingOrders} pending
+            {" · "}
+            {readyOrders} ready
           </p>
         </div>
 
         <div className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
           <p className="text-sm text-[#76534e]">
-            Today&apos;s Order Value
+            Completed Sales
           </p>
 
           <p className="mt-2 text-3xl font-semibold">
             {formatCurrency(
-              todaysOrderValue
+              completedSalesCents
             )}
           </p>
+
+          <p className="mt-2 text-xs text-[#94716b]">
+            {
+              completedOrders.length
+            }{" "}
+            {completedOrders.length ===
+            1
+              ? "completed order"
+              : "completed orders"}
+          </p>
         </div>
 
-        <div className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
-          <p className="text-sm text-[#76534e]">
-            Pending
+        <div className="rounded-3xl border border-[#d7ead7] bg-[#fbfffb] p-6">
+          <p className="text-sm text-[#557455]">
+            Money Collected
           </p>
 
-          <p className="mt-2 text-3xl font-semibold">
-            {pendingOrders}
+          <p className="mt-2 text-3xl font-semibold text-[#355b35]">
+            {formatCurrency(
+              collectedCents
+            )}
+          </p>
+
+          <p className="mt-2 text-xs text-[#6b886b]">
+            {paidOrders.length}{" "}
+            {paidOrders.length === 1
+              ? "paid order"
+              : "paid orders"}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
-          <p className="text-sm text-[#76534e]">
-            Ready for Pickup
+        <div className="rounded-3xl border border-[#eeddb9] bg-[#fffdf8] p-6">
+          <p className="text-sm text-[#866b37]">
+            Payment Pending
           </p>
 
-          <p className="mt-2 text-3xl font-semibold">
-            {readyOrders}
+          <p className="mt-2 text-3xl font-semibold text-[#74551d]">
+            {formatCurrency(
+              pendingPaymentCents
+            )}
+          </p>
+
+          <p className="mt-2 text-xs text-[#947d50]">
+            {
+              pendingPaymentOrders.length
+            }{" "}
+            {pendingPaymentOrders.length ===
+            1
+              ? "order awaiting payment"
+              : "orders awaiting payment"}
           </p>
         </div>
       </div>
+
+      {/* UNPAID COMPLETED WARNING */}
+      {completedUnpaidOrders.length >
+        0 && (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#eeddb9] bg-[#fffaf0] px-5 py-4">
+          <div>
+            <p className="font-medium text-[#74551d]">
+              Payment attention
+              needed
+            </p>
+
+            <p className="mt-1 text-sm text-[#947d50]">
+              {
+                completedUnpaidOrders.length
+              }{" "}
+              {completedUnpaidOrders.length ===
+              1
+                ? "completed order still needs to be marked as paid."
+                : "completed orders still need to be marked as paid."}
+            </p>
+          </div>
+
+          <Link
+            href="/admin/orders"
+            className="rounded-full bg-[#8e4d56] px-5 py-2 text-sm font-medium text-white"
+          >
+            Review Orders
+          </Link>
+        </div>
+      )}
 
       <div className="mt-8 grid gap-8 xl:grid-cols-[1.5fr_1fr]">
         {/* TODAY'S PICKUPS */}
@@ -346,15 +508,17 @@ export default async function AdminDashboardPage() {
             </Link>
           </div>
 
-          {upcomingOrders.length === 0 ? (
+          {upcomingOrders.length ===
+          0 ? (
             <div className="px-6 py-12 text-center">
               <p className="font-medium">
-                No active pickup orders.
+                No active pickup
+                orders.
               </p>
 
               <p className="mt-1 text-sm text-[#94716b]">
-                New orders for today will
-                appear here.
+                New orders for today
+                will appear here.
               </p>
             </div>
           ) : (
@@ -374,7 +538,10 @@ export default async function AdminDashboardPage() {
                         </p>
 
                         <p className="mt-1 text-xs text-[#94716b]">
-                          #{order.order_number}
+                          #
+                          {
+                            order.order_number
+                          }
                         </p>
                       </div>
 
@@ -448,8 +615,9 @@ export default async function AdminDashboardPage() {
               </h2>
 
               <p className="mt-1 text-sm text-[#94716b]">
-                Active items currently
-                marked sold out.
+                Active items
+                currently marked
+                sold out.
               </p>
             </div>
 
@@ -457,7 +625,8 @@ export default async function AdminDashboardPage() {
             0 ? (
               <div className="px-6 py-8">
                 <p className="text-sm text-[#426b42]">
-                  Everything is available.
+                  Everything is
+                  available.
                 </p>
               </div>
             ) : (
@@ -469,7 +638,9 @@ export default async function AdminDashboardPage() {
                       className="flex items-center justify-between border-b border-[#f0dddd] px-6 py-4 last:border-b-0"
                     >
                       <span className="font-medium">
-                        {product.name}
+                        {
+                          product.name
+                        }
                       </span>
 
                       <span className="rounded-full bg-[#f9e5e8] px-3 py-1 text-xs font-medium text-[#8e4d56]">
@@ -489,11 +660,13 @@ export default async function AdminDashboardPage() {
         <div className="flex items-center justify-between border-b border-[#ecd6d6] px-6 py-5">
           <div>
             <h2 className="text-xl font-semibold">
-              Upcoming Special Dates
+              Upcoming Special
+              Dates
             </h2>
 
             <p className="mt-1 text-sm text-[#94716b]">
-              Schedule overrides coming up.
+              Schedule overrides
+              coming up.
             </p>
           </div>
 
@@ -505,16 +678,20 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
 
-        {specialDates.length === 0 ? (
+        {specialDates.length ===
+        0 ? (
           <div className="px-6 py-8 text-sm text-[#94716b]">
-            No upcoming special dates.
+            No upcoming special
+            dates.
           </div>
         ) : (
           <div className="grid md:grid-cols-2">
             {specialDates.map(
               (specialDate) => (
                 <div
-                  key={specialDate.id}
+                  key={
+                    specialDate.id
+                  }
                   className="border-b border-[#f0dddd] px-6 py-5 md:border-r"
                 >
                   <p className="font-semibold">
