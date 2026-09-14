@@ -12,6 +12,7 @@ type Order = {
   total_cents: number;
   order_status: string;
   payment_method: string;
+  payment_status: string;
   created_at: string;
   order_items: OrderItem[] | null;
 };
@@ -24,10 +25,16 @@ function paymentLabel(method: string) {
   switch (method) {
     case "cash":
       return "Cash";
+
     case "cashapp":
       return "Cash App";
+
     case "zelle":
       return "Zelle";
+
+    case "card":
+      return "Card";
+
     default:
       return method;
   }
@@ -43,6 +50,7 @@ export default async function AnalyticsPage() {
       total_cents,
       order_status,
       payment_method,
+      payment_status,
       created_at,
       order_items (
         product_name,
@@ -85,7 +93,7 @@ export default async function AnalyticsPage() {
       order.order_status === "cancelled"
   );
 
-  const activeOrders = orders.filter(
+  const validOrders = orders.filter(
     (order) =>
       order.order_status !== "cancelled"
   );
@@ -95,8 +103,58 @@ export default async function AnalyticsPage() {
       order.order_status === "completed"
   );
 
+  /*
+    COMPLETED SALES
+
+    This measures the value of orders that the
+    business has actually completed.
+
+    An order may be completed but still have a
+    pending payment, so this is intentionally
+    separate from Money Collected.
+  */
   const completedSalesCents =
     completedOrders.reduce(
+      (total, order) =>
+        total + order.total_cents,
+      0
+    );
+
+  /*
+    MONEY COLLECTED
+
+    Only non-cancelled orders marked as paid
+    count here.
+
+    This allows prepaid orders to count even
+    before they are completed.
+  */
+  const paidOrders = validOrders.filter(
+    (order) =>
+      order.payment_status === "paid"
+  );
+
+  const collectedCents =
+    paidOrders.reduce(
+      (total, order) =>
+        total + order.total_cents,
+      0
+    );
+
+  /*
+    PAYMENT PENDING
+
+    These are valid orders for which the owner
+    has not yet marked payment as received.
+  */
+  const pendingPaymentOrders =
+    validOrders.filter(
+      (order) =>
+        order.payment_status !== "paid"
+    );
+
+  const pendingPaymentCents =
+    pendingPaymentOrders.reduce(
       (total, order) =>
         total + order.total_cents,
       0
@@ -119,12 +177,19 @@ export default async function AnalyticsPage() {
         ).toFixed(1)
       : "0.0";
 
+  /*
+    POPULAR PRODUCTS
+
+    Cancelled orders do not count.
+  */
   const productCounts =
     new Map<string, number>();
 
-  for (const order of activeOrders) {
-    for (const item of order.order_items ??
-      []) {
+  for (const order of validOrders) {
+    for (
+      const item of
+      order.order_items ?? []
+    ) {
       productCounts.set(
         item.product_name,
         (productCounts.get(
@@ -134,23 +199,31 @@ export default async function AnalyticsPage() {
     }
   }
 
-  const popularProducts = Array.from(
-    productCounts.entries()
-  )
-    .map(([name, quantity]) => ({
-      name,
-      quantity,
-    }))
-    .sort(
-      (a, b) =>
-        b.quantity - a.quantity
+  const popularProducts =
+    Array.from(
+      productCounts.entries()
     )
-    .slice(0, 5);
+      .map(
+        ([name, quantity]) => ({
+          name,
+          quantity,
+        })
+      )
+      .sort(
+        (a, b) =>
+          b.quantity - a.quantity
+      )
+      .slice(0, 5);
 
+  /*
+    PAYMENT METHODS
+
+    Again, cancelled orders don't count.
+  */
   const paymentCounts =
     new Map<string, number>();
 
-  for (const order of activeOrders) {
+  for (const order of validOrders) {
     paymentCounts.set(
       order.payment_method,
       (paymentCounts.get(
@@ -159,16 +232,20 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const payments = Array.from(
-    paymentCounts.entries()
-  )
-    .map(([method, count]) => ({
-      method,
-      count,
-    }))
-    .sort(
-      (a, b) => b.count - a.count
-    );
+  const payments =
+    Array.from(
+      paymentCounts.entries()
+    )
+      .map(
+        ([method, count]) => ({
+          method,
+          count,
+        })
+      )
+      .sort(
+        (a, b) =>
+          b.count - a.count
+      );
 
   return (
     <div>
@@ -183,13 +260,13 @@ export default async function AnalyticsPage() {
           </h1>
 
           <p className="mt-2 text-[#76534e]">
-            Track orders, sales, and customer
-            purchasing activity.
+            Track orders, sales, payments, and
+            customer purchasing activity.
           </p>
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
           <p className="text-sm text-[#76534e]">
             Total Orders
@@ -197,6 +274,11 @@ export default async function AnalyticsPage() {
 
           <p className="mt-2 text-3xl font-semibold">
             {orders.length}
+          </p>
+
+          <p className="mt-2 text-xs text-[#94716b]">
+            All orders including cancelled
+            orders.
           </p>
         </div>
 
@@ -206,7 +288,52 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-3xl font-semibold">
-            {money(completedSalesCents)}
+            {money(
+              completedSalesCents
+            )}
+          </p>
+
+          <p className="mt-2 text-xs text-[#94716b]">
+            {completedOrders.length}{" "}
+            {completedOrders.length === 1
+              ? "completed order"
+              : "completed orders"}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-[#d7ead7] bg-[#fbfffb] p-6">
+          <p className="text-sm text-[#557455]">
+            Money Collected
+          </p>
+
+          <p className="mt-2 text-3xl font-semibold text-[#355b35]">
+            {money(collectedCents)}
+          </p>
+
+          <p className="mt-2 text-xs text-[#6b886b]">
+            {paidOrders.length}{" "}
+            {paidOrders.length === 1
+              ? "paid order"
+              : "paid orders"}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-[#eeddb9] bg-[#fffdf8] p-6">
+          <p className="text-sm text-[#866b37]">
+            Payment Pending
+          </p>
+
+          <p className="mt-2 text-3xl font-semibold text-[#74551d]">
+            {money(
+              pendingPaymentCents
+            )}
+          </p>
+
+          <p className="mt-2 text-xs text-[#947d50]">
+            {pendingPaymentOrders.length}{" "}
+            {pendingPaymentOrders.length === 1
+              ? "order awaiting payment"
+              : "orders awaiting payment"}
           </p>
         </div>
 
@@ -216,7 +343,13 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-3xl font-semibold">
-            {money(averageOrderCents)}
+            {money(
+              averageOrderCents
+            )}
+          </p>
+
+          <p className="mt-2 text-xs text-[#94716b]">
+            Based on completed orders.
           </p>
         </div>
 
@@ -227,6 +360,13 @@ export default async function AnalyticsPage() {
 
           <p className="mt-2 text-3xl font-semibold">
             {cancellationRate}%
+          </p>
+
+          <p className="mt-2 text-xs text-[#94716b]">
+            {cancelledOrders.length}{" "}
+            {cancelledOrders.length === 1
+              ? "cancelled order"
+              : "cancelled orders"}
           </p>
         </div>
       </div>
@@ -252,17 +392,21 @@ export default async function AnalyticsPage() {
               </p>
 
               <p className="mt-1 text-sm text-[#94716b]">
-                Product rankings will
-                appear after active orders
-                are placed.
+                Product rankings will appear
+                after valid orders are placed.
               </p>
             </div>
           ) : (
             <div>
               {popularProducts.map(
-                (product, index) => (
+                (
+                  product,
+                  index
+                ) => (
                   <div
-                    key={product.name}
+                    key={
+                      product.name
+                    }
                     className="flex items-center justify-between border-b border-[#f0dddd] px-6 py-5 last:border-b-0"
                   >
                     <div className="flex items-center gap-4">
@@ -271,13 +415,17 @@ export default async function AnalyticsPage() {
                       </div>
 
                       <p className="font-medium">
-                        {product.name}
+                        {
+                          product.name
+                        }
                       </p>
                     </div>
 
                     <div className="text-right">
                       <p className="font-semibold">
-                        {product.quantity}
+                        {
+                          product.quantity
+                        }
                       </p>
 
                       <p className="text-xs text-[#94716b]">
@@ -310,9 +458,8 @@ export default async function AnalyticsPage() {
               </p>
 
               <p className="mt-1 text-sm text-[#94716b]">
-                Payment breakdown will
-                appear after active orders
-                are placed.
+                Payment breakdown will appear
+                after valid orders are placed.
               </p>
             </div>
           ) : (
@@ -333,7 +480,9 @@ export default async function AnalyticsPage() {
 
                     <div className="text-right">
                       <p className="font-semibold">
-                        {payment.count}
+                        {
+                          payment.count
+                        }
                       </p>
 
                       <p className="text-xs text-[#94716b]">
@@ -361,11 +510,11 @@ export default async function AnalyticsPage() {
         <div className="grid gap-4 p-6 sm:grid-cols-3">
           <div className="rounded-2xl bg-[#fff8f7] p-5">
             <p className="text-sm text-[#76534e]">
-              Active / Valid Orders
+              Non-Cancelled Orders
             </p>
 
             <p className="mt-2 text-2xl font-semibold">
-              {activeOrders.length}
+              {validOrders.length}
             </p>
           </div>
 
@@ -375,7 +524,9 @@ export default async function AnalyticsPage() {
             </p>
 
             <p className="mt-2 text-2xl font-semibold">
-              {completedOrders.length}
+              {
+                completedOrders.length
+              }
             </p>
           </div>
 
@@ -385,7 +536,9 @@ export default async function AnalyticsPage() {
             </p>
 
             <p className="mt-2 text-2xl font-semibold">
-              {cancelledOrders.length}
+              {
+                cancelledOrders.length
+              }
             </p>
           </div>
         </div>
