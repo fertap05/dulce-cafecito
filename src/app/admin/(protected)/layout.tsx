@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import type { ReactNode } from "react";
 
+import AdminLiveUpdates from "@/components/admin/AdminLiveUpdates";
 import AdminShell from "@/components/admin/AdminShell";
 import { createClient } from "@/lib/supabase/server";
 
@@ -45,9 +46,38 @@ export default async function AdminLayout({
     redirect("/admin/login");
   }
 
+  // Get the newest order number.
+  // AdminLiveUpdates uses this to detect
+  // when a new order has arrived.
+  const {
+    data: latestOrder,
+    error: latestOrderError,
+  } = await supabase
+    .from("orders")
+    .select("order_number")
+    .order("order_number", {
+      ascending: false,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestOrderError) {
+    console.error(
+      "Could not load latest order number:",
+      latestOrderError
+    );
+  }
+
+  const latestOrderNumber =
+    latestOrder?.order_number ?? null;
+
   return (
     <AdminShell>
       {children}
+
+      <AdminLiveUpdates
+        latestOrderNumber={latestOrderNumber}
+      />
     </AdminShell>
   );
 }
