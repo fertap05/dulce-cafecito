@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import SalesOverTimeChart from "@/components/admin/SalesOverTimeChart";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -126,6 +127,214 @@ function getDateKey(
     )?.value ?? "";
 
   return `${year}-${month}-${day}`;
+}
+
+function getHourInTimeZone(
+  date: Date,
+  timezone: string
+) {
+  const formatter =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "2-digit",
+      hourCycle: "h23",
+    });
+
+  const parts =
+    formatter.formatToParts(date);
+
+  const hour =
+    parts.find(
+      (part) => part.type === "hour"
+    )?.value ?? "0";
+
+  return Number(hour);
+}
+
+function formatHourLabel(
+  hour: number
+) {
+  const period =
+    hour >= 12 ? "PM" : "AM";
+
+  const hour12 =
+    hour % 12 || 12;
+
+  return `${hour12} ${period}`;
+}
+
+function formatDateLabel(
+  dateKey: string
+) {
+  const [year, month, day] =
+    dateKey
+      .split("-")
+      .map(Number);
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day,
+        12
+      )
+    );
+
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: "UTC",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }
+  ).format(date);
+}
+
+function formatMonthLabel(
+  monthKey: string
+) {
+  const [year, month] =
+    monthKey
+      .split("-")
+      .map(Number);
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        1,
+        12
+      )
+    );
+
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: "UTC",
+      month: "short",
+      year: "numeric",
+    }
+  ).format(date);
+}
+
+function buildSalesSeries(
+  orders: Order[],
+  range: AnalyticsRange,
+  timezone: string
+) {
+  const groups = new Map<
+    string,
+    {
+      key: string;
+      label: string;
+      sortKey: string;
+      valueCents: number;
+      orderCount: number;
+    }
+  >();
+
+  for (const order of orders) {
+    const orderDate =
+      new Date(order.created_at);
+
+    let key = "";
+    let label = "";
+    let sortKey = "";
+
+    if (range === "today") {
+      const hour =
+        getHourInTimeZone(
+          orderDate,
+          timezone
+        );
+
+      key = `hour-${hour}`;
+
+      label =
+        formatHourLabel(hour);
+
+      sortKey =
+        String(hour).padStart(
+          2,
+          "0"
+        );
+    } else {
+      const dateKey =
+        getDateKey(
+          orderDate,
+          timezone
+        );
+
+      if (range === "all") {
+        const monthKey =
+          dateKey.slice(0, 7);
+
+        key = monthKey;
+
+        label =
+          formatMonthLabel(
+            monthKey
+          );
+
+        sortKey =
+          monthKey;
+      } else {
+        key = dateKey;
+
+        label =
+          formatDateLabel(
+            dateKey
+          );
+
+        sortKey =
+          dateKey;
+      }
+    }
+
+    const existing =
+      groups.get(key);
+
+    if (existing) {
+      existing.valueCents +=
+        order.total_cents;
+
+      existing.orderCount += 1;
+    } else {
+      groups.set(key, {
+        key,
+        label,
+        sortKey,
+        valueCents:
+          order.total_cents,
+        orderCount: 1,
+      });
+    }
+  }
+
+  return Array.from(
+    groups.values()
+  )
+    .sort((a, b) =>
+      a.sortKey.localeCompare(
+        b.sortKey
+      )
+    )
+    .map(
+      ({
+        key,
+        label,
+        valueCents,
+        orderCount,
+      }) => ({
+        key,
+        label,
+        valueCents,
+        orderCount,
+      })
+    );
 }
 
 function shiftDateKey(
@@ -464,6 +673,13 @@ export default async function AnalyticsPage({
         selectedRange
     )?.label ?? "All Time";
 
+    const salesSeries =
+  buildSalesSeries(
+    completedOrders,
+    selectedRange,
+    timezone
+  );
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-6">
@@ -641,7 +857,12 @@ export default async function AnalyticsPage({
               : "cancelled orders"}
           </p>
         </div>
-      </div>
+            </div>
+
+      <SalesOverTimeChart
+        points={salesSeries}
+        rangeLabel={selectedRangeLabel}
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="overflow-hidden rounded-3xl border border-[#ecd6d6] bg-white">
