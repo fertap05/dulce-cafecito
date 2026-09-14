@@ -2,47 +2,110 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+
+import type { FormEvent } from "react";
 
 import { useCart } from "@/components/CartProvider";
 
-import type { PickupAvailability } from "@/types/business";
+import {
+  validateCustomerInfo,
+} from "@/lib/validation";
+
+import type {
+  CustomerValidationErrors,
+} from "@/lib/validation";
+
+import type {
+  PickupAvailability,
+} from "@/types/business";
 
 type CheckoutContentsProps = {
   availability: PickupAvailability;
 };
 
-type PaymentMethod = "cash" | "cashapp" | "zelle";
+type PaymentMethod =
+  | "cash"
+  | "cashapp"
+  | "zelle";
 
 export default function CheckoutContents({
   availability,
 }: CheckoutContentsProps) {
   const router = useRouter();
 
-  const { items, subtotal, clearCart } = useCart();
+  const {
+    items,
+    subtotal,
+    clearCart,
+  } = useCart();
 
-  const [pickupTime, setPickupTime] = useState("");
-
-  const [customerName, setCustomerName] =
+  const [pickupTime, setPickupTime] =
     useState("");
 
-  const [customerEmail, setCustomerEmail] =
-    useState("");
+  const [
+    customerName,
+    setCustomerName,
+  ] = useState("");
 
-  const [customerPhone, setCustomerPhone] =
-    useState("");
+  const [
+    customerEmail,
+    setCustomerEmail,
+  ] = useState("");
 
-  const [customerNote, setCustomerNote] =
-    useState("");
+  const [
+    customerPhone,
+    setCustomerPhone,
+  ] = useState("");
 
-  const [paymentMethod, setPaymentMethod] =
+  const [
+    customerNote,
+    setCustomerNote,
+  ] = useState("");
+
+  const [
+    paymentMethod,
+    setPaymentMethod,
+  ] =
     useState<PaymentMethod>("cash");
 
-  const [placingOrder, setPlacingOrder] =
-    useState(false);
+  const [
+    placingOrder,
+    setPlacingOrder,
+  ] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
+
+  const [
+    validationErrors,
+    setValidationErrors,
+  ] =
+    useState<CustomerValidationErrors>(
+      {}
+    );
+
+  function clearFieldError(
+    field: keyof CustomerValidationErrors
+  ) {
+    setValidationErrors(
+      (currentErrors) => {
+        if (!currentErrors[field]) {
+          return currentErrors;
+        }
+
+        const nextErrors = {
+          ...currentErrors,
+        };
+
+        delete nextErrors[field];
+
+        return nextErrors;
+      }
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -52,8 +115,8 @@ export default function CheckoutContents({
         </h2>
 
         <p className="mt-3 text-[#76534e]">
-          Add something from the menu before
-          checking out.
+          Add something from the menu
+          before checking out.
         </p>
 
         <Link
@@ -77,20 +140,30 @@ export default function CheckoutContents({
       setErrorMessage(
         "Please choose a pickup time."
       );
+
       return;
     }
 
-    if (
-      !customerName.trim() ||
-      !customerEmail.trim() ||
-      !customerPhone.trim()
-    ) {
-      setErrorMessage(
-        "Please complete your name, email, and phone number."
+    const validation =
+      validateCustomerInfo({
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+      });
+
+    if (!validation.valid) {
+      setValidationErrors(
+        validation.errors
       );
+
+      setErrorMessage(
+        "Please correct the highlighted customer information."
+      );
+
       return;
     }
 
+    setValidationErrors({});
     setPlacingOrder(true);
 
     try {
@@ -100,39 +173,59 @@ export default function CheckoutContents({
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
-            customerName,
-            customerEmail,
-            customerPhone,
+            customerName:
+              validation.normalized.name,
 
-            pickupDate: availability.date,
+            customerEmail:
+              validation.normalized.email,
+
+            customerPhone:
+              validation.normalized.phone,
+
+            pickupDate:
+              availability.date,
+
             pickupTime,
 
             paymentMethod,
-            customerNote,
 
-            items: items.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              instructions:
-                item.instructions,
+            customerNote:
+              customerNote.trim(),
 
-              selectedOptions:
-                item.selectedOptions.map(
-                  (option) => ({
-                    groupId: option.groupId,
-                    valueId: option.valueId,
-                  })
-                ),
-            })),
+            items: items.map(
+              (item) => ({
+                productId:
+                  item.productId,
+
+                quantity:
+                  item.quantity,
+
+                instructions:
+                  item.instructions,
+
+                selectedOptions:
+                  item.selectedOptions.map(
+                    (option) => ({
+                      groupId:
+                        option.groupId,
+
+                      valueId:
+                        option.valueId,
+                    })
+                  ),
+              })
+            ),
           }),
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       if (!response.ok) {
         setErrorMessage(
@@ -141,6 +234,7 @@ export default function CheckoutContents({
         );
 
         setPlacingOrder(false);
+
         return;
       }
 
@@ -161,6 +255,7 @@ export default function CheckoutContents({
   return (
     <form
       onSubmit={handleSubmit}
+      noValidate
       className="mt-12 grid gap-10 lg:grid-cols-[1fr_340px]"
     >
       <div className="space-y-6">
@@ -174,7 +269,8 @@ export default function CheckoutContents({
           </h2>
 
           <p className="mt-3 text-sm leading-6 text-[#76534e]">
-            Orders currently require approximately{" "}
+            Orders currently require
+            approximately{" "}
             {
               availability.settings
                 .preparationTimeMinutes
@@ -193,9 +289,9 @@ export default function CheckoutContents({
             </p>
           ) : (
             <p className="mt-2 text-sm text-[#76534e]">
-              Pickup only. The exact address will
-              be provided after order
-              confirmation.
+              Pickup only. The exact
+              address will be provided
+              after order confirmation.
             </p>
           )}
 
@@ -222,11 +318,15 @@ export default function CheckoutContents({
                       <button
                         key={slot.value}
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
                           setPickupTime(
                             slot.value
-                          )
-                        }
+                          );
+
+                          setErrorMessage(
+                            ""
+                          );
+                        }}
                         className={`rounded-2xl border px-4 py-3 text-sm transition ${
                           selected
                             ? "border-[#8e4d56] bg-[#8e4d56] text-white"
@@ -261,14 +361,42 @@ export default function CheckoutContents({
                 id="customerName"
                 type="text"
                 value={customerName}
-                onChange={(event) =>
+                onChange={(event) => {
                   setCustomerName(
                     event.target.value
+                  );
+
+                  clearFieldError(
+                    "name"
+                  );
+                }}
+                aria-invalid={
+                  Boolean(
+                    validationErrors.name
                   )
                 }
-                required
-                className="mt-2 w-full rounded-2xl border border-[#ecd6d6] bg-white px-4 py-3 outline-none focus:border-[#8e4d56]"
+                aria-describedby={
+                  validationErrors.name
+                    ? "customerNameError"
+                    : undefined
+                }
+                className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 outline-none transition ${
+                  validationErrors.name
+                    ? "border-[#b76e79] bg-[#fff7f7] focus:border-[#8e4d56]"
+                    : "border-[#ecd6d6] focus:border-[#8e4d56]"
+                }`}
               />
+
+              {validationErrors.name && (
+                <p
+                  id="customerNameError"
+                  className="mt-2 text-sm text-[#8e4d56]"
+                >
+                  {
+                    validationErrors.name
+                  }
+                </p>
+              )}
             </div>
 
             <div>
@@ -282,15 +410,45 @@ export default function CheckoutContents({
               <input
                 id="customerEmail"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 value={customerEmail}
-                onChange={(event) =>
+                onChange={(event) => {
                   setCustomerEmail(
                     event.target.value
+                  );
+
+                  clearFieldError(
+                    "email"
+                  );
+                }}
+                aria-invalid={
+                  Boolean(
+                    validationErrors.email
                   )
                 }
-                required
-                className="mt-2 w-full rounded-2xl border border-[#ecd6d6] bg-white px-4 py-3 outline-none focus:border-[#8e4d56]"
+                aria-describedby={
+                  validationErrors.email
+                    ? "customerEmailError"
+                    : undefined
+                }
+                className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 outline-none transition ${
+                  validationErrors.email
+                    ? "border-[#b76e79] bg-[#fff7f7] focus:border-[#8e4d56]"
+                    : "border-[#ecd6d6] focus:border-[#8e4d56]"
+                }`}
               />
+
+              {validationErrors.email && (
+                <p
+                  id="customerEmailError"
+                  className="mt-2 text-sm text-[#8e4d56]"
+                >
+                  {
+                    validationErrors.email
+                  }
+                </p>
+              )}
             </div>
 
             <div>
@@ -304,15 +462,45 @@ export default function CheckoutContents({
               <input
                 id="customerPhone"
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 value={customerPhone}
-                onChange={(event) =>
+                onChange={(event) => {
                   setCustomerPhone(
                     event.target.value
+                  );
+
+                  clearFieldError(
+                    "phone"
+                  );
+                }}
+                aria-invalid={
+                  Boolean(
+                    validationErrors.phone
                   )
                 }
-                required
-                className="mt-2 w-full rounded-2xl border border-[#ecd6d6] bg-white px-4 py-3 outline-none focus:border-[#8e4d56]"
+                aria-describedby={
+                  validationErrors.phone
+                    ? "customerPhoneError"
+                    : undefined
+                }
+                className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 outline-none transition ${
+                  validationErrors.phone
+                    ? "border-[#b76e79] bg-[#fff7f7] focus:border-[#8e4d56]"
+                    : "border-[#ecd6d6] focus:border-[#8e4d56]"
+                }`}
               />
+
+              {validationErrors.phone && (
+                <p
+                  id="customerPhoneError"
+                  className="mt-2 text-sm text-[#8e4d56]"
+                >
+                  {
+                    validationErrors.phone
+                  }
+                </p>
+              )}
             </div>
 
             <div>
@@ -384,13 +572,15 @@ export default function CheckoutContents({
                   }
                 />
 
-                <span>{method.label}</span>
+                <span>
+                  {method.label}
+                </span>
               </label>
             ))}
 
             <div className="rounded-2xl border border-dashed border-[#ecd6d6] p-4 text-sm text-[#94716b]">
-              Card payment will be added later
-              through the website.
+              Card payment will be added
+              later through the website.
             </div>
           </div>
         </section>
@@ -441,6 +631,7 @@ export default function CheckoutContents({
 
         <div className="flex justify-between font-semibold">
           <span>Total</span>
+
           <span>
             ${subtotal.toFixed(2)}
           </span>
@@ -452,7 +643,8 @@ export default function CheckoutContents({
             {
               availability.slots.find(
                 (slot) =>
-                  slot.value === pickupTime
+                  slot.value ===
+                  pickupTime
               )?.label
             }
           </p>
@@ -479,8 +671,9 @@ export default function CheckoutContents({
         </button>
 
         <p className="mt-4 text-xs leading-5 text-[#94716b]">
-          Your order will be submitted to
-          Dulce Cafecito for confirmation.
+          Your order will be submitted
+          to Dulce Cafecito for
+          confirmation.
         </p>
       </aside>
     </form>

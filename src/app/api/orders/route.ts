@@ -1,3 +1,4 @@
+import { validateCustomerInfo } from "@/lib/validation";
 import { NextResponse } from "next/server";
 
 import { getTodayPickupAvailability } from "@/lib/business";
@@ -28,16 +29,34 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as OrderRequest;
 
-    if (
-      !body.customerName?.trim() ||
-      !body.customerEmail?.trim() ||
-      !body.customerPhone?.trim()
-    ) {
-      return NextResponse.json(
-        { error: "Customer information is required." },
-        { status: 400 }
-      );
-    }
+    const customerValidation =
+  validateCustomerInfo({
+    name:
+      typeof body.customerName === "string"
+        ? body.customerName
+        : "",
+
+    email:
+      typeof body.customerEmail === "string"
+        ? body.customerEmail
+        : "",
+
+    phone:
+      typeof body.customerPhone === "string"
+        ? body.customerPhone
+        : "",
+  });
+
+if (!customerValidation.valid) {
+  return NextResponse.json(
+    {
+      error:
+        "Please enter valid customer information.",
+      fields: customerValidation.errors,
+    },
+    { status: 400 }
+  );
+}
 
     if (!body.items?.length) {
       return NextResponse.json(
@@ -264,9 +283,14 @@ export async function POST(request: Request) {
       await supabase
         .from("orders")
         .insert({
-          customer_name: body.customerName.trim(),
-          customer_email: body.customerEmail.trim(),
-          customer_phone: body.customerPhone.trim(),
+          customer_name:
+  customerValidation.normalized.name,
+
+customer_email:
+  customerValidation.normalized.email,
+
+customer_phone:
+  customerValidation.normalized.phone,
 
           pickup_date: body.pickupDate,
           pickup_time: body.pickupTime,
