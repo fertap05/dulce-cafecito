@@ -1,6 +1,14 @@
+import Link from "next/link";
+
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+type AnalyticsRange =
+  | "today"
+  | "week"
+  | "month"
+  | "all";
 
 type OrderItem = {
   product_name: string;
@@ -16,6 +24,34 @@ type Order = {
   created_at: string;
   order_items: OrderItem[] | null;
 };
+
+type AnalyticsPageProps = {
+  searchParams: Promise<{
+    range?: string | string[];
+  }>;
+};
+
+const rangeOptions: {
+  value: AnalyticsRange;
+  label: string;
+}[] = [
+  {
+    value: "today",
+    label: "Today",
+  },
+  {
+    value: "week",
+    label: "This Week",
+  },
+  {
+    value: "month",
+    label: "This Month",
+  },
+  {
+    value: "all",
+    label: "All Time",
+  },
+];
 
 function money(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -40,31 +76,201 @@ function paymentLabel(method: string) {
   }
 }
 
-export default async function AnalyticsPage() {
-  const supabase = await createClient();
+function getRange(
+  value: string | string[] | undefined
+): AnalyticsRange {
+  const selected = Array.isArray(value)
+    ? value[0]
+    : value;
 
-  const { data, error } = await supabase
-    .from("orders")
-    .select(`
-      id,
-      total_cents,
-      order_status,
-      payment_method,
-      payment_status,
-      created_at,
-      order_items (
-        product_name,
-        quantity
-      )
-    `)
-    .order("created_at", {
-      ascending: false,
+  if (
+    selected === "today" ||
+    selected === "week" ||
+    selected === "month" ||
+    selected === "all"
+  ) {
+    return selected;
+  }
+
+  return "all";
+}
+
+function getDateKey(
+  date: Date,
+  timezone: string
+) {
+  const formatter =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     });
 
-  if (error) {
+  const parts =
+    formatter.formatToParts(date);
+
+  const year =
+    parts.find(
+      (part) => part.type === "year"
+    )?.value ?? "";
+
+  const month =
+    parts.find(
+      (part) => part.type === "month"
+    )?.value ?? "";
+
+  const day =
+    parts.find(
+      (part) => part.type === "day"
+    )?.value ?? "";
+
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDateKey(
+  dateKey: string,
+  days: number
+) {
+  const date =
+    new Date(`${dateKey}T00:00:00Z`);
+
+  date.setUTCDate(
+    date.getUTCDate() + days
+  );
+
+  return date
+    .toISOString()
+    .slice(0, 10);
+}
+
+function getWeekStart(
+  todayDateKey: string
+) {
+  const date =
+    new Date(
+      `${todayDateKey}T00:00:00Z`
+    );
+
+  const dayOfWeek =
+    date.getUTCDay();
+
+  // Monday = beginning of the week.
+  const daysSinceMonday =
+    (dayOfWeek + 6) % 7;
+
+  return shiftDateKey(
+    todayDateKey,
+    -daysSinceMonday
+  );
+}
+
+function isOrderInRange(
+  order: Order,
+  range: AnalyticsRange,
+  todayDateKey: string,
+  timezone: string
+) {
+  if (range === "all") {
+    return true;
+  }
+
+  const orderDateKey =
+    getDateKey(
+      new Date(order.created_at),
+      timezone
+    );
+
+  if (range === "today") {
+    return (
+      orderDateKey ===
+      todayDateKey
+    );
+  }
+
+  if (range === "week") {
+    const weekStart =
+      getWeekStart(
+        todayDateKey
+      );
+
+    return (
+      orderDateKey >=
+        weekStart &&
+      orderDateKey <=
+        todayDateKey
+    );
+  }
+
+  const monthStart =
+    `${todayDateKey.slice(
+      0,
+      7
+    )}-01`;
+
+  return (
+    orderDateKey >=
+      monthStart &&
+    orderDateKey <=
+      todayDateKey
+  );
+}
+
+export default async function AnalyticsPage({
+  searchParams,
+}: AnalyticsPageProps) {
+  const params =
+    await searchParams;
+
+  const selectedRange =
+    getRange(params.range);
+
+  const supabase =
+    await createClient();
+
+  const [
+    {
+      data: settings,
+      error: settingsError,
+    },
+    {
+      data,
+      error,
+    },
+  ] = await Promise.all([
+    supabase
+      .from("business_settings")
+      .select("timezone")
+      .eq("id", 1)
+      .single(),
+
+    supabase
+      .from("orders")
+      .select(`
+        id,
+        total_cents,
+        order_status,
+        payment_method,
+        payment_status,
+        created_at,
+        order_items (
+          product_name,
+          quantity
+        )
+      `)
+      .order("created_at", {
+        ascending: false,
+      }),
+  ]);
+
+  if (
+    error ||
+    settingsError ||
+    !settings
+  ) {
     console.error(
       "Could not load analytics:",
-      error
+      error ?? settingsError
     );
 
     return (
@@ -86,77 +292,85 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const orders = (data ?? []) as Order[];
+  const timezone =
+    settings.timezone;
 
-  const cancelledOrders = orders.filter(
-    (order) =>
-      order.order_status === "cancelled"
-  );
+  const todayDateKey =
+    getDateKey(
+      new Date(),
+      timezone
+    );
 
-  const validOrders = orders.filter(
-    (order) =>
-      order.order_status !== "cancelled"
-  );
+  const allOrders =
+    (data ?? []) as Order[];
 
-  const completedOrders = orders.filter(
-    (order) =>
-      order.order_status === "completed"
-  );
+  const orders =
+    allOrders.filter(
+      (order) =>
+        isOrderInRange(
+          order,
+          selectedRange,
+          todayDateKey,
+          timezone
+        )
+    );
 
-  /*
-    COMPLETED SALES
+  const cancelledOrders =
+    orders.filter(
+      (order) =>
+        order.order_status ===
+        "cancelled"
+    );
 
-    This measures the value of orders that the
-    business has actually completed.
+  const validOrders =
+    orders.filter(
+      (order) =>
+        order.order_status !==
+        "cancelled"
+    );
 
-    An order may be completed but still have a
-    pending payment, so this is intentionally
-    separate from Money Collected.
-  */
+  const completedOrders =
+    orders.filter(
+      (order) =>
+        order.order_status ===
+        "completed"
+    );
+
   const completedSalesCents =
     completedOrders.reduce(
       (total, order) =>
-        total + order.total_cents,
+        total +
+        order.total_cents,
       0
     );
 
-  /*
-    MONEY COLLECTED
-
-    Only non-cancelled orders marked as paid
-    count here.
-
-    This allows prepaid orders to count even
-    before they are completed.
-  */
-  const paidOrders = validOrders.filter(
-    (order) =>
-      order.payment_status === "paid"
-  );
+  const paidOrders =
+    validOrders.filter(
+      (order) =>
+        order.payment_status ===
+        "paid"
+    );
 
   const collectedCents =
     paidOrders.reduce(
       (total, order) =>
-        total + order.total_cents,
+        total +
+        order.total_cents,
       0
     );
 
-  /*
-    PAYMENT PENDING
-
-    These are valid orders for which the owner
-    has not yet marked payment as received.
-  */
   const pendingPaymentOrders =
     validOrders.filter(
       (order) =>
-        order.payment_status !== "paid"
+        order.payment_status !==
+        "paid"
     );
 
   const pendingPaymentCents =
     pendingPaymentOrders.reduce(
       (total, order) =>
-        total + order.total_cents,
+        total +
+        order.total_cents,
       0
     );
 
@@ -177,15 +391,12 @@ export default async function AnalyticsPage() {
         ).toFixed(1)
       : "0.0";
 
-  /*
-    POPULAR PRODUCTS
-
-    Cancelled orders do not count.
-  */
   const productCounts =
     new Map<string, number>();
 
-  for (const order of validOrders) {
+  for (
+    const order of validOrders
+  ) {
     for (
       const item of
       order.order_items ?? []
@@ -194,7 +405,8 @@ export default async function AnalyticsPage() {
         item.product_name,
         (productCounts.get(
           item.product_name
-        ) ?? 0) + item.quantity
+        ) ?? 0) +
+          item.quantity
       );
     }
   }
@@ -211,19 +423,17 @@ export default async function AnalyticsPage() {
       )
       .sort(
         (a, b) =>
-          b.quantity - a.quantity
+          b.quantity -
+          a.quantity
       )
       .slice(0, 5);
 
-  /*
-    PAYMENT METHODS
-
-    Again, cancelled orders don't count.
-  */
   const paymentCounts =
     new Map<string, number>();
 
-  for (const order of validOrders) {
+  for (
+    const order of validOrders
+  ) {
     paymentCounts.set(
       order.payment_method,
       (paymentCounts.get(
@@ -247,9 +457,16 @@ export default async function AnalyticsPage() {
           b.count - a.count
       );
 
+  const selectedRangeLabel =
+    rangeOptions.find(
+      (option) =>
+        option.value ===
+        selectedRange
+    )?.label ?? "All Time";
+
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-[#b76e79]">
             Dulce Cafecito Admin
@@ -260,13 +477,55 @@ export default async function AnalyticsPage() {
           </h1>
 
           <p className="mt-2 text-[#76534e]">
-            Track orders, sales, payments, and
-            customer purchasing activity.
+            Track orders, sales,
+            payments, and customer
+            purchasing activity.
           </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-[#ecd6d6] bg-white p-2">
+          {rangeOptions.map(
+            (option) => {
+              const isSelected =
+                option.value ===
+                selectedRange;
+
+              return (
+                <Link
+                  key={
+                    option.value
+                  }
+                  href={`/admin/analytics?range=${option.value}`}
+                  className={
+                    isSelected
+                      ? "rounded-xl bg-[#8e4d56] px-4 py-2 text-sm font-medium text-white"
+                      : "rounded-xl px-4 py-2 text-sm font-medium text-[#76534e] transition hover:bg-[#fff3f1]"
+                  }
+                >
+                  {option.label}
+                </Link>
+              );
+            }
+          )}
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 flex items-center justify-between">
+        <p className="text-sm text-[#94716b]">
+          Showing:
+          {" "}
+          <span className="font-medium text-[#76534e]">
+            {selectedRangeLabel}
+          </span>
+        </p>
+
+        <p className="text-xs text-[#94716b]">
+          Time zone:{" "}
+          {timezone}
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
           <p className="text-sm text-[#76534e]">
             Total Orders
@@ -277,8 +536,8 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-xs text-[#94716b]">
-            All orders including cancelled
-            orders.
+            Includes cancelled
+            orders in this period.
           </p>
         </div>
 
@@ -294,8 +553,11 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-xs text-[#94716b]">
-            {completedOrders.length}{" "}
-            {completedOrders.length === 1
+            {
+              completedOrders.length
+            }{" "}
+            {completedOrders.length ===
+            1
               ? "completed order"
               : "completed orders"}
           </p>
@@ -307,12 +569,15 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-3xl font-semibold text-[#355b35]">
-            {money(collectedCents)}
+            {money(
+              collectedCents
+            )}
           </p>
 
           <p className="mt-2 text-xs text-[#6b886b]">
             {paidOrders.length}{" "}
-            {paidOrders.length === 1
+            {paidOrders.length ===
+            1
               ? "paid order"
               : "paid orders"}
           </p>
@@ -330,8 +595,11 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-xs text-[#947d50]">
-            {pendingPaymentOrders.length}{" "}
-            {pendingPaymentOrders.length === 1
+            {
+              pendingPaymentOrders.length
+            }{" "}
+            {pendingPaymentOrders.length ===
+            1
               ? "order awaiting payment"
               : "orders awaiting payment"}
           </p>
@@ -349,7 +617,8 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-xs text-[#94716b]">
-            Based on completed orders.
+            Based on completed
+            orders.
           </p>
         </div>
 
@@ -363,8 +632,11 @@ export default async function AnalyticsPage() {
           </p>
 
           <p className="mt-2 text-xs text-[#94716b]">
-            {cancelledOrders.length}{" "}
-            {cancelledOrders.length === 1
+            {
+              cancelledOrders.length
+            }{" "}
+            {cancelledOrders.length ===
+            1
               ? "cancelled order"
               : "cancelled orders"}
           </p>
@@ -388,12 +660,14 @@ export default async function AnalyticsPage() {
           0 ? (
             <div className="p-10 text-center">
               <p className="font-medium">
-                No product sales yet.
+                No product sales
+                yet.
               </p>
 
               <p className="mt-1 text-sm text-[#94716b]">
-                Product rankings will appear
-                after valid orders are placed.
+                No product data
+                exists for this
+                period.
               </p>
             </div>
           ) : (
@@ -411,7 +685,8 @@ export default async function AnalyticsPage() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff3f1] text-sm font-semibold text-[#8e4d56]">
-                        {index + 1}
+                        {index +
+                          1}
                       </div>
 
                       <p className="font-medium">
@@ -446,20 +721,23 @@ export default async function AnalyticsPage() {
             </h2>
 
             <p className="mt-1 text-sm text-[#94716b]">
-              Payment preferences from
-              non-cancelled orders.
+              Payment preferences
+              from non-cancelled
+              orders.
             </p>
           </div>
 
           {payments.length === 0 ? (
             <div className="p-10 text-center">
               <p className="font-medium">
-                No payment data yet.
+                No payment data
+                yet.
               </p>
 
               <p className="mt-1 text-sm text-[#94716b]">
-                Payment breakdown will appear
-                after valid orders are placed.
+                No payment data
+                exists for this
+                period.
               </p>
             </div>
           ) : (
