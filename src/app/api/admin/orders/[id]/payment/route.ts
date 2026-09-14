@@ -98,7 +98,7 @@ export async function PATCH(
     } = await adminClient
       .from("orders")
       .select(
-        "id, payment_status"
+        "id, payment_status, paid_at"
       )
       .eq("id", id)
       .maybeSingle();
@@ -126,8 +126,18 @@ export async function PATCH(
         orderId: order.id,
         paymentStatus:
           order.payment_status,
+        paidAt:
+          order.paid_at,
       });
     }
+
+    const now =
+      new Date().toISOString();
+
+    const paidAt =
+      body.paymentStatus === "paid"
+        ? now
+        : null;
 
     const {
       data: updatedOrder,
@@ -137,12 +147,16 @@ export async function PATCH(
       .update({
         payment_status:
           body.paymentStatus,
+
+        paid_at:
+          paidAt,
+
         updated_at:
-          new Date().toISOString(),
+          now,
       })
       .eq("id", id)
       .select(
-        "id, payment_status"
+        "id, payment_status, paid_at"
       )
       .single();
 
@@ -156,6 +170,9 @@ export async function PATCH(
 
       paymentStatus:
         updatedOrder.payment_status,
+
+      paidAt:
+        updatedOrder.paid_at,
     });
   } catch (error) {
     console.error(
