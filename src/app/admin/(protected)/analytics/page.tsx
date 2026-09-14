@@ -23,6 +23,7 @@ type Order = {
   payment_method: string;
   payment_status: string;
   created_at: string;
+  paid_at: string | null;
   order_items: OrderItem[] | null;
 };
 
@@ -220,10 +221,13 @@ function formatMonthLabel(
   ).format(date);
 }
 
-function buildSalesSeries(
+function buildValueSeries(
   orders: Order[],
   range: AnalyticsRange,
-  timezone: string
+  timezone: string,
+  getTimestamp: (
+    order: Order
+  ) => string | null
 ) {
   const groups = new Map<
     string,
@@ -237,8 +241,15 @@ function buildSalesSeries(
   >();
 
   for (const order of orders) {
-    const orderDate =
-      new Date(order.created_at);
+    const timestamp =
+      getTimestamp(order);
+
+    if (!timestamp) {
+      continue;
+    }
+
+    const eventDate =
+      new Date(timestamp);
 
     let key = "";
     let label = "";
@@ -247,7 +258,7 @@ function buildSalesSeries(
     if (range === "today") {
       const hour =
         getHourInTimeZone(
-          orderDate,
+          eventDate,
           timezone
         );
 
@@ -264,7 +275,7 @@ function buildSalesSeries(
     } else {
       const dateKey =
         getDateKey(
-          orderDate,
+          eventDate,
           timezone
         );
 
@@ -336,7 +347,6 @@ function buildSalesSeries(
       })
     );
 }
-
 function shiftDateKey(
   dateKey: string,
   days: number
@@ -374,8 +384,8 @@ function getWeekStart(
   );
 }
 
-function isOrderInRange(
-  order: Order,
+function isTimestampInRange(
+  timestamp: string,
   range: AnalyticsRange,
   todayDateKey: string,
   timezone: string
@@ -384,16 +394,15 @@ function isOrderInRange(
     return true;
   }
 
-  const orderDateKey =
+  const dateKey =
     getDateKey(
-      new Date(order.created_at),
+      new Date(timestamp),
       timezone
     );
 
   if (range === "today") {
     return (
-      orderDateKey ===
-      todayDateKey
+      dateKey === todayDateKey
     );
   }
 
@@ -404,10 +413,8 @@ function isOrderInRange(
       );
 
     return (
-      orderDateKey >=
-        weekStart &&
-      orderDateKey <=
-        todayDateKey
+      dateKey >= weekStart &&
+      dateKey <= todayDateKey
     );
   }
 
@@ -418,10 +425,22 @@ function isOrderInRange(
     )}-01`;
 
   return (
-    orderDateKey >=
-      monthStart &&
-    orderDateKey <=
-      todayDateKey
+    dateKey >= monthStart &&
+    dateKey <= todayDateKey
+  );
+}
+
+function isOrderInRange(
+  order: Order,
+  range: AnalyticsRange,
+  todayDateKey: string,
+  timezone: string
+) {
+  return isTimestampInRange(
+    order.created_at,
+    range,
+    todayDateKey,
+    timezone
   );
 }
 
@@ -460,9 +479,10 @@ export default async function AnalyticsPage({
         total_cents,
         order_status,
         payment_method,
-        payment_status,
-        created_at,
-        order_items (
+payment_status,
+created_at,
+paid_at,
+order_items (
           product_name,
           quantity
         )
@@ -554,11 +574,20 @@ export default async function AnalyticsPage({
     );
 
   const paidOrders =
-    validOrders.filter(
-      (order) =>
-        order.payment_status ===
-        "paid"
-    );
+  allOrders.filter(
+    (order) =>
+      order.order_status !==
+        "cancelled" &&
+      order.payment_status ===
+        "paid" &&
+      order.paid_at !== null &&
+      isTimestampInRange(
+        order.paid_at,
+        selectedRange,
+        todayDateKey,
+        timezone
+      )
+  );
 
   const collectedCents =
     paidOrders.reduce(
@@ -674,10 +703,21 @@ export default async function AnalyticsPage({
     )?.label ?? "All Time";
 
     const salesSeries =
-  buildSalesSeries(
+  buildValueSeries(
     completedOrders,
     selectedRange,
-    timezone
+    timezone,
+    (order) =>
+      order.created_at
+  );
+
+const collectedSeries =
+  buildValueSeries(
+    paidOrders,
+    selectedRange,
+    timezone,
+    (order) =>
+      order.paid_at
   );
 
   return (
@@ -860,9 +900,20 @@ export default async function AnalyticsPage({
             </div>
 
       <SalesOverTimeChart
-        points={salesSeries}
-        rangeLabel={selectedRangeLabel}
-      />
+  points={salesSeries}
+  rangeLabel={selectedRangeLabel}
+/>
+
+<SalesOverTimeChart
+  points={collectedSeries}
+  rangeLabel={selectedRangeLabel}
+  title="Money Collected Over Time"
+  description={`Payments received during ${selectedRangeLabel.toLowerCase()}.`}
+  singularLabel="payment"
+  pluralLabel="payments"
+  emptyTitle="No payments received yet."
+  emptyDescription="Payments received during this period will appear here."
+/>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="overflow-hidden rounded-3xl border border-[#ecd6d6] bg-white">
