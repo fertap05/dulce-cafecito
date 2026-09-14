@@ -12,8 +12,10 @@ export default function AdminLoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [errorMessage, setErrorMessage] =
     useState("");
+
   const [loading, setLoading] =
     useState(false);
 
@@ -25,25 +27,95 @@ export default function AdminLoginPage() {
     setErrorMessage("");
     setLoading(true);
 
-    const supabase = createClient();
-
-    const { error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-    if (error) {
+    // Detect when the browser already knows
+    // there is no internet connection.
+    if (!navigator.onLine) {
       setErrorMessage(
-        "Invalid email or password."
+        "No internet connection. Check your connection and try again."
       );
 
       setLoading(false);
       return;
     }
 
-    router.push("/admin/orders");
-    router.refresh();
+    try {
+      const supabase = createClient();
+
+      const { error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+      if (error) {
+        const message =
+          error.message.toLowerCase();
+
+        // Supabase normally returns this
+        // when the credentials are actually wrong.
+        if (
+          message.includes(
+            "invalid login credentials"
+          ) ||
+          message.includes(
+            "invalid credentials"
+          )
+        ) {
+          setErrorMessage(
+            "Incorrect email or password."
+          );
+        }
+
+        // Network/fetch related failures can still
+        // happen even if navigator.onLine says true.
+        else if (
+          message.includes(
+            "failed to fetch"
+          ) ||
+          message.includes(
+            "fetch failed"
+          ) ||
+          message.includes(
+            "network"
+          )
+        ) {
+          setErrorMessage(
+            "We could not connect to the server. Check your internet connection and try again."
+          );
+        }
+
+        // Catch any other authentication problem
+        // without incorrectly blaming the password.
+        else {
+          setErrorMessage(
+            "We couldn't sign you in. Please try again."
+          );
+        }
+
+        setLoading(false);
+        return;
+      }
+
+      router.push("/admin/orders");
+      router.refresh();
+    } catch (error) {
+      console.error(
+        "Admin sign in failed:",
+        error
+      );
+
+      if (!navigator.onLine) {
+        setErrorMessage(
+          "No internet connection. Check your connection and try again."
+        );
+      } else {
+        setErrorMessage(
+          "We could not connect to the server. Please try again."
+        );
+      }
+
+      setLoading(false);
+    }
   }
 
   return (
@@ -83,7 +155,8 @@ export default function AdminLoginPage() {
               }
               required
               autoComplete="email"
-              className="mt-2 w-full rounded-2xl border border-[#ecd6d6] px-4 py-3 outline-none focus:border-[#8e4d56]"
+              disabled={loading}
+              className="mt-2 w-full rounded-2xl border border-[#ecd6d6] px-4 py-3 outline-none focus:border-[#8e4d56] disabled:opacity-60"
             />
           </div>
 
@@ -104,7 +177,8 @@ export default function AdminLoginPage() {
               }
               required
               autoComplete="current-password"
-              className="mt-2 w-full rounded-2xl border border-[#ecd6d6] px-4 py-3 outline-none focus:border-[#8e4d56]"
+              disabled={loading}
+              className="mt-2 w-full rounded-2xl border border-[#ecd6d6] px-4 py-3 outline-none focus:border-[#8e4d56] disabled:opacity-60"
             />
           </div>
 
@@ -117,7 +191,7 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46] disabled:opacity-50"
+            className="w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading
               ? "Signing In..."

@@ -1,4 +1,5 @@
 import OrderStatusControls from "@/components/admin/OrderStatusControls";
+import PaymentStatusControls from "@/components/admin/PaymentStatusControls";
 import { createClient } from "@/lib/supabase/server";
 
 import type { OrderStatus } from "@/types/order";
@@ -362,11 +363,14 @@ export default async function AdminOrdersPage() {
                         )}
                       </p>
 
-                      <p className="mt-1 text-sm capitalize text-[#76534e]">
-                        {
-                          order.payment_status
-                        }
-                      </p>
+                      <PaymentStatusControls
+  orderId={order.id}
+  currentStatus={
+    order.payment_status as
+      | "pending"
+      | "paid"
+  }
+/>
 
                       {order.customer_note && (
                         <>
