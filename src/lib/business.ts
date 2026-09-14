@@ -1,3 +1,4 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 import type {
@@ -20,23 +21,29 @@ function getPart(
   parts: Intl.DateTimeFormatPart[],
   type: string
 ) {
-  return parts.find((part) => part.type === type)?.value ?? "";
+  return (
+    parts.find((part) => part.type === type)
+      ?.value ?? ""
+  );
 }
 
 function getBusinessDateTime(
   timezone: string,
   now = new Date()
 ) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
+  const formatter = new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: timezone,
+      weekday: "short",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }
+  );
 
   const parts = formatter.formatToParts(now);
 
@@ -46,47 +53,76 @@ function getBusinessDateTime(
   const weekday = getPart(parts, "weekday");
 
   const hour = Number(getPart(parts, "hour"));
-  const minute = Number(getPart(parts, "minute"));
+  const minute = Number(
+    getPart(parts, "minute")
+  );
 
-  const dayLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(now);
+  const dayLabel = new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: timezone,
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    }
+  ).format(now);
 
   return {
     date: `${year}-${month}-${day}`,
     dayLabel,
-    dayOfWeek: weekdayNumbers[weekday],
-    currentMinutes: hour * 60 + minute,
+    dayOfWeek:
+      weekdayNumbers[weekday],
+    currentMinutes:
+      hour * 60 + minute,
   };
 }
 
 function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":");
+  const [hours, minutes] =
+    time.split(":");
 
-  return Number(hours) * 60 + Number(minutes);
+  return (
+    Number(hours) * 60 +
+    Number(minutes)
+  );
 }
 
-function minutesToValue(minutes: number) {
-  const hours = Math.floor(minutes / 60);
+function minutesToValue(
+  minutes: number
+) {
+  const hours = Math.floor(
+    minutes / 60
+  );
+
   const mins = minutes % 60;
 
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(
+  return `${String(hours).padStart(
+    2,
+    "0"
+  )}:${String(mins).padStart(
     2,
     "0"
   )}`;
 }
 
-function minutesToLabel(minutes: number) {
-  const hours24 = Math.floor(minutes / 60);
+function minutesToLabel(
+  minutes: number
+) {
+  const hours24 = Math.floor(
+    minutes / 60
+  );
+
   const mins = minutes % 60;
 
-  const period = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
+  const period =
+    hours24 >= 12 ? "PM" : "AM";
 
-  return `${hours12}:${String(mins).padStart(2, "0")} ${period}`;
+  const hours12 =
+    hours24 % 12 || 12;
+
+  return `${hours12}:${String(
+    mins
+  ).padStart(2, "0")} ${period}`;
 }
 
 function createSlots(
@@ -97,24 +133,28 @@ function createSlots(
   intervalMinutes: number
 ): PickupSlot[] {
   const earliestPossible =
-    currentMinutes + preparationMinutes;
+    currentMinutes +
+    preparationMinutes;
 
   const startingPoint = Math.max(
     openMinutes,
     earliestPossible
   );
 
-  const intervalsAfterOpening = Math.max(
-    0,
-    Math.ceil(
-      (startingPoint - openMinutes) /
-        intervalMinutes
-    )
-  );
+  const intervalsAfterOpening =
+    Math.max(
+      0,
+      Math.ceil(
+        (startingPoint -
+          openMinutes) /
+          intervalMinutes
+      )
+    );
 
   const firstSlot =
     openMinutes +
-    intervalsAfterOpening * intervalMinutes;
+    intervalsAfterOpening *
+      intervalMinutes;
 
   const slots: PickupSlot[] = [];
 
@@ -124,61 +164,178 @@ function createSlots(
     minutes += intervalMinutes
   ) {
     slots.push({
-      value: minutesToValue(minutes),
-      label: minutesToLabel(minutes),
+      value:
+        minutesToValue(minutes),
+      label:
+        minutesToLabel(minutes),
     });
   }
 
   return slots;
 }
 
+async function removeFullPickupSlots(
+  slots: PickupSlot[],
+  pickupDate: string,
+  maxOrdersPerSlot: number | null
+): Promise<PickupSlot[]> {
+  // Null means the owner has chosen
+  // to have no limit.
+  if (
+    maxOrdersPerSlot === null
+  ) {
+    return slots;
+  }
+
+  const adminClient =
+    createAdminClient();
+
+  const {
+    data: orders,
+    error: ordersError,
+  } = await adminClient
+    .from("orders")
+    .select(
+      `
+        pickup_time,
+        order_status
+      `
+    )
+    .eq(
+      "pickup_date",
+      pickupDate
+    )
+    .neq(
+      "order_status",
+      "cancelled"
+    );
+
+  if (ordersError) {
+    throw new Error(
+      `Could not check pickup slot capacity: ${ordersError.message}`
+    );
+  }
+
+  const orderCounts =
+    new Map<string, number>();
+
+  for (
+    const order of orders ?? []
+  ) {
+    if (!order.pickup_time) {
+      continue;
+    }
+
+    /*
+      PostgreSQL TIME may come back as:
+
+      13:30:00
+
+      while our checkout slot is:
+
+      13:30
+
+      So we normalize both to HH:MM.
+    */
+    const pickupTime =
+      String(
+        order.pickup_time
+      ).slice(0, 5);
+
+    orderCounts.set(
+      pickupTime,
+      (orderCounts.get(
+        pickupTime
+      ) ?? 0) + 1
+    );
+  }
+
+  return slots.filter(
+    (slot) => {
+      const currentOrders =
+        orderCounts.get(
+          slot.value
+        ) ?? 0;
+
+      return (
+        currentOrders <
+        maxOrdersPerSlot
+      );
+    }
+  );
+}
+
 export async function getTodayPickupAvailability(): Promise<PickupAvailability> {
-  const supabase = await createClient();
+  const supabase =
+    await createClient();
 
-  const { data: settingsRow, error: settingsError } =
-    await supabase
-      .from("business_settings")
-      .select(
-        `
-          business_name,
-          timezone,
-          preparation_time_minutes,
-          pickup_slot_interval_minutes,
-          same_day_only,
-          ordering_enabled,
-          pickup_enabled,
-          max_orders_per_slot,
-          public_zip_code
-        `
-      )
-      .eq("id", 1)
-      .single();
+  const {
+    data: settingsRow,
+    error: settingsError,
+  } = await supabase
+    .from("business_settings")
+    .select(
+      `
+        business_name,
+        timezone,
+        preparation_time_minutes,
+        pickup_slot_interval_minutes,
+        same_day_only,
+        ordering_enabled,
+        pickup_enabled,
+        max_orders_per_slot,
+        public_zip_code
+      `
+    )
+    .eq("id", 1)
+    .single();
 
-  if (settingsError || !settingsRow) {
+  if (
+    settingsError ||
+    !settingsRow
+  ) {
     throw new Error(
       `Could not load business settings: ${
-        settingsError?.message ?? "Settings not found"
+        settingsError?.message ??
+        "Settings not found"
       }`
     );
   }
 
-  const settings: BusinessSettings = {
-    businessName: settingsRow.business_name,
-    timezone: settingsRow.timezone,
-    preparationTimeMinutes:
-      settingsRow.preparation_time_minutes,
-    pickupSlotIntervalMinutes:
-      settingsRow.pickup_slot_interval_minutes,
-    sameDayOnly: settingsRow.same_day_only,
-    orderingEnabled: settingsRow.ordering_enabled,
-    pickupEnabled: settingsRow.pickup_enabled,
-    maxOrdersPerSlot: settingsRow.max_orders_per_slot,
-    publicZipCode: settingsRow.public_zip_code,
-  };
+  const settings: BusinessSettings =
+    {
+      businessName:
+        settingsRow.business_name,
 
-  const businessNow = getBusinessDateTime(
-    settings.timezone
-  );
+      timezone:
+        settingsRow.timezone,
+
+      preparationTimeMinutes:
+        settingsRow.preparation_time_minutes,
+
+      pickupSlotIntervalMinutes:
+        settingsRow.pickup_slot_interval_minutes,
+
+      sameDayOnly:
+        settingsRow.same_day_only,
+
+      orderingEnabled:
+        settingsRow.ordering_enabled,
+
+      pickupEnabled:
+        settingsRow.pickup_enabled,
+
+      maxOrdersPerSlot:
+        settingsRow.max_orders_per_slot,
+
+      publicZipCode:
+        settingsRow.public_zip_code,
+    };
+
+  const businessNow =
+    getBusinessDateTime(
+      settings.timezone
+    );
 
   const closedResult = (
     reason: string,
@@ -186,7 +343,8 @@ export async function getTodayPickupAvailability(): Promise<PickupAvailability> 
   ): PickupAvailability => ({
     settings,
     date: businessNow.date,
-    dayLabel: businessNow.dayLabel,
+    dayLabel:
+      businessNow.dayLabel,
     isOpen: false,
     reason,
     note,
@@ -195,31 +353,42 @@ export async function getTodayPickupAvailability(): Promise<PickupAvailability> 
     slots: [],
   });
 
-  if (!settings.orderingEnabled) {
+  if (
+    !settings.orderingEnabled
+  ) {
     return closedResult(
       "Online ordering is currently paused."
     );
   }
 
-  if (!settings.pickupEnabled) {
+  if (
+    !settings.pickupEnabled
+  ) {
     return closedResult(
       "Pickup is currently unavailable."
     );
   }
 
-  const { data: exception, error: exceptionError } =
-    await supabase
-      .from("schedule_exceptions")
-      .select(
-        `
-          is_closed,
-          open_time,
-          close_time,
-          public_note
-        `
-      )
-      .eq("exception_date", businessNow.date)
-      .maybeSingle();
+  const {
+    data: exception,
+    error: exceptionError,
+  } = await supabase
+    .from(
+      "schedule_exceptions"
+    )
+    .select(
+      `
+        is_closed,
+        open_time,
+        close_time,
+        public_note
+      `
+    )
+    .eq(
+      "exception_date",
+      businessNow.date
+    )
+    .maybeSingle();
 
   if (exceptionError) {
     throw new Error(
@@ -227,35 +396,55 @@ export async function getTodayPickupAvailability(): Promise<PickupAvailability> 
     );
   }
 
-  let openTime: string | null = null;
-  let closeTime: string | null = null;
-  let note: string | null = null;
+  let openTime:
+    | string
+    | null = null;
+
+  let closeTime:
+    | string
+    | null = null;
+
+  let note:
+    | string
+    | null = null;
 
   if (exception) {
-    note = exception.public_note;
+    note =
+      exception.public_note;
 
-    if (exception.is_closed) {
+    if (
+      exception.is_closed
+    ) {
       return closedResult(
-        exception.public_note ?? "Dulce Cafecito is closed today.",
+        exception.public_note ??
+          "Dulce Cafecito is closed today.",
         exception.public_note
       );
     }
 
-    openTime = exception.open_time;
-    closeTime = exception.close_time;
+    openTime =
+      exception.open_time;
+
+    closeTime =
+      exception.close_time;
   } else {
-    const { data: hours, error: hoursError } =
-      await supabase
-        .from("business_hours")
-        .select(
-          `
-            is_open,
-            open_time,
-            close_time
-          `
-        )
-        .eq("day_of_week", businessNow.dayOfWeek)
-        .maybeSingle();
+    const {
+      data: hours,
+      error: hoursError,
+    } = await supabase
+      .from("business_hours")
+      .select(
+        `
+          is_open,
+          open_time,
+          close_time
+        `
+      )
+      .eq(
+        "day_of_week",
+        businessNow.dayOfWeek
+      )
+      .maybeSingle();
 
     if (hoursError) {
       throw new Error(
@@ -263,42 +452,89 @@ export async function getTodayPickupAvailability(): Promise<PickupAvailability> 
       );
     }
 
-    if (!hours || !hours.is_open) {
+    if (
+      !hours ||
+      !hours.is_open
+    ) {
       return closedResult(
         "Dulce Cafecito is closed today."
       );
     }
 
-    openTime = hours.open_time;
-    closeTime = hours.close_time;
+    openTime =
+      hours.open_time;
+
+    closeTime =
+      hours.close_time;
   }
 
-  if (!openTime || !closeTime) {
+  if (
+    !openTime ||
+    !closeTime
+  ) {
     return closedResult(
       "Pickup hours are not available today."
     );
   }
 
-  const slots = createSlots(
-    timeToMinutes(openTime),
-    timeToMinutes(closeTime),
-    businessNow.currentMinutes,
-    settings.preparationTimeMinutes,
-    settings.pickupSlotIntervalMinutes
-  );
+  const generatedSlots =
+    createSlots(
+      timeToMinutes(
+        openTime
+      ),
+      timeToMinutes(
+        closeTime
+      ),
+      businessNow.currentMinutes,
+      settings.preparationTimeMinutes,
+      settings.pickupSlotIntervalMinutes
+    );
+
+  const availableSlots =
+    await removeFullPickupSlots(
+      generatedSlots,
+      businessNow.date,
+      settings.maxOrdersPerSlot
+    );
+
+  let reason: string | null =
+    null;
+
+  if (
+    generatedSlots.length ===
+    0
+  ) {
+    reason =
+      "There are no pickup times left today.";
+  } else if (
+    availableSlots.length ===
+    0
+  ) {
+    reason =
+      "All remaining pickup times are currently full.";
+  }
 
   return {
     settings,
-    date: businessNow.date,
-    dayLabel: businessNow.dayLabel,
-    isOpen: slots.length > 0,
-    reason:
-      slots.length === 0
-        ? "There are no pickup times left today."
-        : null,
+    date:
+      businessNow.date,
+
+    dayLabel:
+      businessNow.dayLabel,
+
+    isOpen:
+      availableSlots.length >
+      0,
+
+    reason,
+
     note,
+
     openTime,
+
     closeTime,
-    slots,
+
+    slots:
+      availableSlots,
   };
 }
