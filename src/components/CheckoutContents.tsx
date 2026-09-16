@@ -241,8 +241,9 @@ export default function CheckoutContents({
       clearCart();
 
       router.push(
-        `/order-confirmation?order=${result.orderNumber}`
-      );
+  `/order-confirmation/${result.confirmationToken}`
+);
+
     } catch {
       setErrorMessage(
         "Something went wrong while placing your order."

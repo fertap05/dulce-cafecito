@@ -1,7 +1,9 @@
 import BusinessSettingsManager from "@/components/admin/BusinessSettingsManager";
-import { createClient } from "@/lib/supabase/server";
+import PrivatePickupSettingsManager from "@/components/admin/PrivatePickupSettingsManager";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 type SettingsRow = {
   id: number;
@@ -9,28 +11,94 @@ type SettingsRow = {
   timezone: string;
   ordering_enabled: boolean;
   pickup_enabled: boolean;
-  max_orders_per_slot: number | null;
-  public_zip_code: string | null;
+  max_orders_per_slot:
+    | number
+    | null;
+  public_zip_code:
+    | string
+    | null;
+};
+
+type PrivateSettingsRow = {
+  id: number;
+
+  pickup_address_line1:
+    | string
+    | null;
+
+  pickup_address_line2:
+    | string
+    | null;
+
+  pickup_city:
+    | string
+    | null;
+
+  pickup_state:
+    | string
+    | null;
+
+  pickup_zip_code:
+    | string
+    | null;
+
+  pickup_instructions:
+    | string
+    | null;
 };
 
 export default async function AdminSettingsPage() {
-  const supabase = await createClient();
+  const supabase =
+    createAdminClient();
 
-  const { data, error } = await supabase
-    .from("business_settings")
-    .select(`
-      id,
-      business_name,
-      timezone,
-      ordering_enabled,
-      pickup_enabled,
-      max_orders_per_slot,
-      public_zip_code
-    `)
-    .limit(1)
-    .maybeSingle();
+  const [
+    {
+      data: settingsData,
+      error: settingsError,
+    },
+    {
+      data: privateData,
+      error: privateError,
+    },
+  ] = await Promise.all([
+    supabase
+      .from(
+        "business_settings"
+      )
+      .select(`
+        id,
+        business_name,
+        timezone,
+        ordering_enabled,
+        pickup_enabled,
+        max_orders_per_slot,
+        public_zip_code
+      `)
+      .eq("id", 1)
+      .maybeSingle(),
 
-  if (error || !data) {
+    supabase
+      .from(
+        "private_business_settings"
+      )
+      .select(`
+        id,
+        pickup_address_line1,
+        pickup_address_line2,
+        pickup_city,
+        pickup_state,
+        pickup_zip_code,
+        pickup_instructions
+      `)
+      .eq("id", 1)
+      .maybeSingle(),
+  ]);
+
+  if (
+    settingsError ||
+    privateError ||
+    !settingsData
+  ) {
     return (
       <div>
         <p className="text-xs uppercase tracking-[0.25em] text-[#b76e79]">
@@ -50,6 +118,23 @@ export default async function AdminSettingsPage() {
     );
   }
 
+  const privateSettings: PrivateSettingsRow =
+    privateData ?? {
+      id: 1,
+      pickup_address_line1:
+        null,
+      pickup_address_line2:
+        null,
+      pickup_city:
+        null,
+      pickup_state:
+        null,
+      pickup_zip_code:
+        null,
+      pickup_instructions:
+        null,
+    };
+
   return (
     <div>
       <div className="mb-10">
@@ -62,12 +147,21 @@ export default async function AdminSettingsPage() {
         </h1>
 
         <p className="mt-2 text-[#76534e]">
-          Manage general business and ordering settings.
+          Manage general business,
+          ordering, and pickup settings.
         </p>
       </div>
 
       <BusinessSettingsManager
-        initialSettings={data as SettingsRow}
+        initialSettings={
+          settingsData as SettingsRow
+        }
+      />
+
+      <PrivatePickupSettingsManager
+        initialSettings={
+          privateSettings
+        }
       />
     </div>
   );
