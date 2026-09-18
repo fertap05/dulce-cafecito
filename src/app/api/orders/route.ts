@@ -7,6 +7,7 @@ import {
 } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateCustomerInfo } from "@/lib/validation";
+import { sendNewOrderPushNotification } from "@/lib/push";
 
 type OrderRequestItem = {
   productId: number;
@@ -688,42 +689,72 @@ export async function POST(
         emailError
       );
     }
-
     try {
-  await sendNewOrderAdminEmail({
-    orderNumber:
-      order.order_number,
+      await sendNewOrderAdminEmail({
+        orderNumber:
+          order.order_number,
 
-    customerName:
-      customerValidation
-        .normalized.name,
+        customerName:
+          customerValidation
+            .normalized.name,
 
-    customerEmail:
-      customerValidation
-        .normalized.email,
+        customerEmail:
+          customerValidation
+            .normalized.email,
 
-    customerPhone:
-      customerValidation
-        .normalized.phone,
+        customerPhone:
+          customerValidation
+            .normalized.phone,
 
-    pickupDate:
-      body.pickupDate,
+        pickupDate:
+          body.pickupDate,
 
-    pickupTime:
-      body.pickupTime,
+        pickupTime:
+          body.pickupTime,
 
-    totalCents:
-      subtotalCents,
+        totalCents:
+          subtotalCents,
 
-    paymentMethod:
-      body.paymentMethod,
-  });
-} catch (emailError) {
-  console.error(
-    "Order created, but owner notification failed:",
-    emailError
-  );
-}
+        paymentMethod:
+          body.paymentMethod,
+      });
+    } catch (emailError) {
+      console.error(
+        "Order created, but owner notification failed:",
+        emailError
+      );
+    }
+
+    /*
+     * Send browser / device push
+     * notification to subscribed admins.
+     */
+    try {
+      const pushResult =
+        await sendNewOrderPushNotification({
+          orderNumber:
+            order.order_number,
+
+          customerName:
+            customerValidation
+              .normalized.name,
+
+          pickupTime:
+            body.pickupTime,
+
+          totalCents:
+            subtotalCents,
+        });
+
+      console.log(
+        `New order push notification: ${pushResult.sent} sent, ${pushResult.failed} failed, ${pushResult.removed} expired removed.`
+      );
+    } catch (pushError) {
+      console.error(
+        "Order created, but push notification failed:",
+        pushError
+      );
+    }
 
     /*
      * Return the secure confirmation
@@ -761,3 +792,6 @@ export async function POST(
     );
   }
 }
+
+
+

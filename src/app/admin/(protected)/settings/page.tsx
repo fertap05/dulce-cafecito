@@ -1,6 +1,7 @@
 import BusinessSettingsManager from "@/components/admin/BusinessSettingsManager";
 import PrivatePickupSettingsManager from "@/components/admin/PrivatePickupSettingsManager";
 import { createAdminClient } from "@/lib/supabase/admin";
+import PushNotificationSettings from "@/components/admin/PushNotificationSettings";
 
 export const dynamic =
   "force-dynamic";
@@ -163,6 +164,8 @@ export default async function AdminSettingsPage() {
           privateSettings
         }
       />
+
+      <PushNotificationSettings />
     </div>
   );
 }
