@@ -753,14 +753,12 @@ export default function OrdersManager({
                             </p>
 
                             <PaymentStatusControls
-                              orderId={
-                                order.id
-                              }
-                              currentStatus={
-                                order.payment_status as
-                                  | "pending"
-                                  | "paid"
-                              }
+                            orderId={String(order.id)}
+                            currentStatus={
+                            order.payment_status as
+                             | "pending"
+                           | "paid"
+                            }
                             />
 
                             {order.customer_note && (
@@ -782,13 +780,11 @@ export default function OrdersManager({
                             <div className="my-6 h-px bg-[#ecd6d6]" />
 
                             <OrderStatusControls
-                              orderId={
-                                order.id
-                              }
-                              currentStatus={
-                                order.order_status as OrderStatus
-                              }
-                            />
+  orderId={String(order.id)}
+  currentStatus={
+    order.order_status as OrderStatus
+  }
+/>
                           </div>
                         </div>
                       </div>
