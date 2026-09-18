@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 function urlBase64ToUint8Array(
   base64String: string
@@ -33,14 +36,25 @@ function urlBase64ToUint8Array(
 }
 
 export default function PushNotificationSettings() {
-  const [supported, setSupported] =
-    useState(true);
+  const [
+    supported,
+    setSupported,
+  ] = useState(true);
 
-  const [enabled, setEnabled] =
-    useState(false);
+  const [
+    enabled,
+    setEnabled,
+  ] = useState(false);
 
-  const [loading, setLoading] =
-    useState(false);
+  const [
+    loading,
+    setLoading,
+  ] = useState<
+    | "enable"
+    | "disable"
+    | "test"
+    | null
+  >(null);
 
   const [
     errorMessage,
@@ -68,10 +82,14 @@ export default function PushNotificationSettings() {
       }
 
       try {
+        await navigator
+          .serviceWorker
+          .register("/sw.js");
+
         const registration =
           await navigator
             .serviceWorker
-            .register("/sw.js");
+            .ready;
 
         const subscription =
           await registration
@@ -81,7 +99,12 @@ export default function PushNotificationSettings() {
         setEnabled(
           Boolean(subscription)
         );
-      } catch {
+      } catch (error) {
+        console.error(
+          "Could not check push status:",
+          error
+        );
+
         setSupported(false);
       }
     }
@@ -90,7 +113,7 @@ export default function PushNotificationSettings() {
   }, []);
 
   async function enableNotifications() {
-    setLoading(true);
+    setLoading("enable");
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -106,25 +129,26 @@ export default function PushNotificationSettings() {
       }
 
       const permission =
-        await Notification.requestPermission();
+        await Notification
+          .requestPermission();
 
       if (
-        permission !== "granted"
+        permission !==
+        "granted"
       ) {
-        setErrorMessage(
+        throw new Error(
           "Notification permission was not granted."
         );
-
-        return;
       }
+
+      await navigator
+        .serviceWorker
+        .register("/sw.js");
 
       const registration =
         await navigator
           .serviceWorker
-          .register("/sw.js");
-
-      await navigator
-        .serviceWorker.ready;
+          .ready;
 
       let subscription =
         await registration
@@ -153,16 +177,18 @@ export default function PushNotificationSettings() {
         await fetch(
           "/api/admin/push-subscriptions",
           {
-            method: "POST",
+            method:
+              "POST",
 
             headers: {
               "Content-Type":
                 "application/json",
             },
 
-            body: JSON.stringify(
-              subscriptionJson
-            ),
+            body:
+              JSON.stringify(
+                subscriptionJson
+              ),
           }
         );
 
@@ -188,7 +214,150 @@ export default function PushNotificationSettings() {
           : "Could not enable notifications."
       );
     } finally {
-      setLoading(false);
+      setLoading(null);
+    }
+  }
+
+  async function testNotification() {
+    setLoading("test");
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const registration =
+        await navigator
+          .serviceWorker
+          .ready;
+
+      const subscription =
+        await registration
+          .pushManager
+          .getSubscription();
+
+      if (!subscription) {
+        setEnabled(false);
+
+        throw new Error(
+          "This device is not subscribed to push notifications."
+        );
+      }
+
+      const response =
+        await fetch(
+          "/api/admin/push-subscriptions/test",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                endpoint:
+                  subscription.endpoint,
+              }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ??
+            "Could not send test notification."
+        );
+      }
+
+      setSuccessMessage(
+        "Test notification sent."
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not send test notification."
+      );
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function disableNotifications() {
+    setLoading("disable");
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const registration =
+        await navigator
+          .serviceWorker
+          .ready;
+
+      const subscription =
+        await registration
+          .pushManager
+          .getSubscription();
+
+      if (!subscription) {
+        setEnabled(false);
+
+        setSuccessMessage(
+          "Notifications are already disabled."
+        );
+
+        return;
+      }
+
+      const response =
+        await fetch(
+          "/api/admin/push-subscriptions",
+          {
+            method:
+              "DELETE",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                endpoint:
+                  subscription.endpoint,
+              }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ??
+            "Could not remove notification subscription."
+        );
+      }
+
+      await subscription
+        .unsubscribe();
+
+      setEnabled(false);
+
+      setSuccessMessage(
+        "Push notifications are disabled on this device."
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not disable notifications."
+      );
+    } finally {
+      setLoading(null);
     }
   }
 
@@ -229,23 +398,59 @@ export default function PushNotificationSettings() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                disabled={
-                  loading ||
-                  enabled
-                }
-                onClick={
-                  enableNotifications
-                }
-                className="rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {loading
-                  ? "Enabling..."
-                  : enabled
-                    ? "Notifications Enabled"
+              {!enabled ? (
+                <button
+                  type="button"
+                  disabled={
+                    loading !== null
+                  }
+                  onClick={
+                    enableNotifications
+                  }
+                  className="rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {loading ===
+                  "enable"
+                    ? "Enabling..."
                     : "Enable Notifications"}
-              </button>
+                </button>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    disabled={
+                      loading !==
+                      null
+                    }
+                    onClick={
+                      testNotification
+                    }
+                    className="rounded-full border border-[#8e4d56] px-5 py-3 text-sm font-medium text-[#8e4d56] transition hover:bg-[#fff1f2] disabled:opacity-50"
+                  >
+                    {loading ===
+                    "test"
+                      ? "Sending..."
+                      : "Send Test Notification"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      loading !==
+                      null
+                    }
+                    onClick={
+                      disableNotifications
+                    }
+                    className="rounded-full bg-[#8e4d56] px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {loading ===
+                    "disable"
+                      ? "Disabling..."
+                      : "Disable Notifications"}
+                  </button>
+                </div>
+              )}
             </div>
 
             {errorMessage && (

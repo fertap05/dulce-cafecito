@@ -151,3 +151,86 @@ export async function POST(
     );
   }
 }
+
+export async function DELETE(
+  request: Request
+) {
+  try {
+    const user =
+      await getAdminUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          error:
+            "Not authorized.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    const body =
+      (await request.json()) as {
+        endpoint?: string;
+      };
+
+    const endpoint =
+      body.endpoint?.trim();
+
+    if (!endpoint) {
+      return NextResponse.json(
+        {
+          error:
+            "Push subscription endpoint is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const adminClient =
+      createAdminClient();
+
+    const {
+      error,
+    } = await adminClient
+      .from(
+        "admin_push_subscriptions"
+      )
+      .delete()
+      .eq(
+        "user_id",
+        user.id
+      )
+      .eq(
+        "endpoint",
+        endpoint
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error(
+      "Could not remove push subscription:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Could not disable push notifications.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}

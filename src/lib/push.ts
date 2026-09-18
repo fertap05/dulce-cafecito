@@ -242,3 +242,84 @@ export async function sendNewOrderPushNotification({
     removed,
   };
 }
+
+type TestPushProps = {
+  userId: string;
+  endpoint: string;
+};
+
+export async function sendTestPushNotification({
+  userId,
+  endpoint,
+}: TestPushProps) {
+  configureWebPush();
+
+  const adminClient =
+    createAdminClient();
+
+  const {
+    data: subscription,
+    error,
+  } = await adminClient
+    .from(
+      "admin_push_subscriptions"
+    )
+    .select(`
+      id,
+      endpoint,
+      p256dh,
+      auth
+    `)
+    .eq(
+      "user_id",
+      userId
+    )
+    .eq(
+      "endpoint",
+      endpoint
+    )
+    .maybeSingle();
+
+  if (
+    error ||
+    !subscription
+  ) {
+    throw new Error(
+      "Push subscription not found."
+    );
+  }
+
+  const payload =
+    JSON.stringify({
+      title:
+        "Dulce Cafecito Test ☕",
+
+      body:
+        "Push notifications are working on this device.",
+
+      url:
+        "/admin/settings",
+
+      tag:
+        `push-test-${Date.now()}`,
+    });
+
+  await webpush.sendNotification(
+    {
+      endpoint:
+        subscription.endpoint,
+
+      keys: {
+        p256dh:
+          subscription.p256dh,
+
+        auth:
+          subscription.auth,
+      },
+    },
+    payload,
+    {
+      TTL: 60,
+    }
+  );
+}
