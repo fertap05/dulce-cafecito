@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getTodayPickupAvailability } from "@/lib/business";
-import { sendOrderReceivedEmail } from "@/lib/email";
+import {
+  sendNewOrderAdminEmail,
+  sendOrderReceivedEmail,
+} from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateCustomerInfo } from "@/lib/validation";
 
@@ -685,6 +688,42 @@ export async function POST(
         emailError
       );
     }
+
+    try {
+  await sendNewOrderAdminEmail({
+    orderNumber:
+      order.order_number,
+
+    customerName:
+      customerValidation
+        .normalized.name,
+
+    customerEmail:
+      customerValidation
+        .normalized.email,
+
+    customerPhone:
+      customerValidation
+        .normalized.phone,
+
+    pickupDate:
+      body.pickupDate,
+
+    pickupTime:
+      body.pickupTime,
+
+    totalCents:
+      subtotalCents,
+
+    paymentMethod:
+      body.paymentMethod,
+  });
+} catch (emailError) {
+  console.error(
+    "Order created, but owner notification failed:",
+    emailError
+  );
+}
 
     /*
      * Return the secure confirmation

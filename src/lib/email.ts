@@ -644,3 +644,258 @@ export async function sendOrderStatusEmail({
 
   return data;
 }
+
+type NewOrderAdminEmailProps = {
+  orderNumber: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  pickupDate: string;
+  pickupTime: string;
+  totalCents: number;
+  paymentMethod: string;
+};
+
+export async function sendNewOrderAdminEmail({
+  orderNumber,
+  customerName,
+  customerEmail,
+  customerPhone,
+  pickupDate,
+  pickupTime,
+  totalCents,
+  paymentMethod,
+}: NewOrderAdminEmailProps) {
+  const ownerEmail = 
+    process.env.OWNER_NOTIFICATION_EMAIL;
+
+  if (!ownerEmail) {
+    console.warn(
+      "OWNER_NOTIFICATION_EMAIL is not configured."
+    );
+
+    return null;
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY is not configured."
+    );
+  }
+
+  const adminUrl =
+    `${appUrl}/admin/orders`;
+
+  const formattedDate =
+    formatPickupDate(
+      pickupDate
+    );
+
+  const formattedTime =
+    formatPickupTime(
+      pickupTime
+    );
+
+  const formattedTotal =
+    `$${(
+      totalCents / 100
+    ).toFixed(2)}`;
+
+  const safeCustomerName =
+    escapeHtml(
+      customerName
+    );
+
+  const safeCustomerEmail =
+    escapeHtml(
+      customerEmail
+    );
+
+  const safeCustomerPhone =
+    escapeHtml(
+      customerPhone
+    );
+
+  const safePayment =
+    escapeHtml(
+      paymentLabel(
+        paymentMethod
+      )
+    );
+
+  const { data, error } =
+    await resend.emails.send({
+      from:
+        fromEmail,
+
+      to: [
+        ownerEmail,
+      ],
+
+      subject:
+        `New Dulce Cafecito Order #${orderNumber} ☕`,
+
+      html: `
+        <!DOCTYPE html>
+
+        <html>
+          <body
+            style="
+              margin: 0;
+              padding: 0;
+              background: #fff8f4;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #4a2d29;
+            "
+          >
+            <div
+              style="
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 40px 20px;
+              "
+            >
+              <div
+                style="
+                  background: #ffffff;
+                  border: 1px solid #ecd6d6;
+                  border-radius: 24px;
+                  padding: 36px;
+                "
+              >
+                <p
+                  style="
+                    margin: 0;
+                    color: #b76e79;
+                    font-size: 12px;
+                    letter-spacing: 3px;
+                    text-transform: uppercase;
+                  "
+                >
+                  Dulce Cafecito Admin
+                </p>
+
+                <h1
+                  style="
+                    margin: 16px 0 0;
+                    font-size: 30px;
+                  "
+                >
+                  New Order! ☕
+                </h1>
+
+                <p
+                  style="
+                    margin: 18px 0 0;
+                    line-height: 1.7;
+                  "
+                >
+                  Order
+                  <strong>
+                    #${orderNumber}
+                  </strong>
+                  was just placed.
+                </p>
+
+                <div
+                  style="
+                    margin: 28px 0;
+                    padding: 20px;
+                    border-radius: 16px;
+                    background: #fff8f4;
+                  "
+                >
+                  <p>
+                    <strong>
+                      Customer:
+                    </strong>
+                    ${safeCustomerName}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Email:
+                    </strong>
+                    ${safeCustomerEmail}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Phone:
+                    </strong>
+                    ${safeCustomerPhone}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Pickup:
+                    </strong>
+                    ${formattedDate}
+                    at
+                    ${formattedTime}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Total:
+                    </strong>
+                    ${formattedTotal}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Payment:
+                    </strong>
+                    ${safePayment}
+                  </p>
+                </div>
+
+                <div
+                  style="
+                    margin-top: 30px;
+                    text-align: center;
+                  "
+                >
+                  <a
+                    href="${adminUrl}"
+                    style="
+                      display: inline-block;
+                      padding: 14px 26px;
+                      border-radius: 999px;
+                      background: #8e4d56;
+                      color: #ffffff;
+                      text-decoration: none;
+                      font-weight: 600;
+                    "
+                  >
+                    Manage Order
+                  </a>
+                </div>
+
+                <p
+                  style="
+                    margin-top: 30px;
+                    font-size: 12px;
+                    line-height: 1.6;
+                    color: #94716b;
+                  "
+                >
+                  Sign in to the Dulce Cafecito admin
+                  dashboard to confirm and manage this
+                  order.
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+  if (error) {
+    throw new Error(
+      `Resend error: ${error.message}`
+    );
+  }
+
+  return data;
+}
