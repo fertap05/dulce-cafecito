@@ -1,23 +1,39 @@
 import BusinessSettingsManager from "@/components/admin/BusinessSettingsManager";
 import PrivatePickupSettingsManager from "@/components/admin/PrivatePickupSettingsManager";
-import { createAdminClient } from "@/lib/supabase/admin";
 import PushNotificationSettings from "@/components/admin/PushNotificationSettings";
+
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic =
   "force-dynamic";
 
 type SettingsRow = {
   id: number;
+
   business_name: string;
   timezone: string;
+
   ordering_enabled: boolean;
   pickup_enabled: boolean;
+
   max_orders_per_slot:
     | number
     | null;
+
   public_zip_code:
     | string
     | null;
+
+  hero_eyebrow: string;
+  hero_tagline: string;
+  hero_description: string;
+
+  about_title: string;
+  about_paragraph_1: string;
+  about_paragraph_2: string;
+
+  about_highlight_title: string;
+  about_highlight_text: string;
 };
 
 type PrivateSettingsRow = {
@@ -62,6 +78,9 @@ export default async function AdminSettingsPage() {
       error: privateError,
     },
   ] = await Promise.all([
+    /*
+     * Public/general business settings.
+     */
     supabase
       .from(
         "business_settings"
@@ -73,11 +92,22 @@ export default async function AdminSettingsPage() {
         ordering_enabled,
         pickup_enabled,
         max_orders_per_slot,
-        public_zip_code
+        public_zip_code,
+        hero_eyebrow,
+        hero_tagline,
+        hero_description,
+        about_title,
+        about_paragraph_1,
+        about_paragraph_2,
+        about_highlight_title,
+        about_highlight_text
       `)
       .eq("id", 1)
       .maybeSingle(),
 
+    /*
+     * Private pickup information.
+     */
     supabase
       .from(
         "private_business_settings"
@@ -100,6 +130,14 @@ export default async function AdminSettingsPage() {
     privateError ||
     !settingsData
   ) {
+    console.error(
+      "Could not load admin settings:",
+      {
+        settingsError,
+        privateError,
+      }
+    );
+
     return (
       <div>
         <p className="text-xs uppercase tracking-[0.25em] text-[#b76e79]">
@@ -122,16 +160,22 @@ export default async function AdminSettingsPage() {
   const privateSettings: PrivateSettingsRow =
     privateData ?? {
       id: 1,
+
       pickup_address_line1:
         null,
+
       pickup_address_line2:
         null,
+
       pickup_city:
         null,
+
       pickup_state:
         null,
+
       pickup_zip_code:
         null,
+
       pickup_instructions:
         null,
     };
@@ -149,7 +193,8 @@ export default async function AdminSettingsPage() {
 
         <p className="mt-2 text-[#76534e]">
           Manage general business,
-          ordering, and pickup settings.
+          website, ordering, pickup,
+          and notification settings.
         </p>
       </div>
 

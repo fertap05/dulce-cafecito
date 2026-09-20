@@ -1,4 +1,5 @@
 import Link from "next/link";
+
 import CartButton from "@/components/CartButton";
 
 export default function Header() {
@@ -13,20 +14,18 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm text-[#76534e] md:flex">
-          <Link href="/" className="transition hover:text-[#8e4d56]">
+          <Link
+            href="/"
+            className="transition hover:text-[#8e4d56]"
+          >
             Home
           </Link>
 
-          <Link href="/menu" className="transition hover:text-[#8e4d56]">
+          <Link
+            href="/menu"
+            className="transition hover:text-[#8e4d56]"
+          >
             Menu
-          </Link>
-
-          <Link href="/rewards" className="transition hover:text-[#8e4d56]">
-            Rewards
-          </Link>
-
-          <Link href="/about" className="transition hover:text-[#8e4d56]">
-            About
           </Link>
         </nav>
 
@@ -34,18 +33,18 @@ export default function Header() {
           <CartButton />
 
           <Link
-            href="/login"
-            className="hidden text-sm text-[#76534e] transition hover:text-[#8e4d56] sm:block"
-          >
-            Sign In
-          </Link>
-
-          <Link
             href="/menu"
             className="rounded-full bg-[#8e4d56] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#763d46]"
           >
             Order
           </Link>
+
+          <Link
+  href="/#about"
+  className="transition hover:text-[#8e4d56]"
+>
+  About
+</Link>
         </div>
       </div>
     </header>
