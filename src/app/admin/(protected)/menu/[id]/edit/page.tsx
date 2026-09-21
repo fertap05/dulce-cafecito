@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import ProductEditForm from "@/components/admin/ProductEditForm";
 import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 type EditProductPageProps = {
   params: Promise<{
@@ -15,19 +16,33 @@ type EditProductPageProps = {
 export default async function EditProductPage({
   params,
 }: EditProductPageProps) {
-  const { id } = await params;
+  const { id } =
+    await params;
 
-  const productId = Number(id);
+  const productId =
+    Number(id);
 
-  if (!Number.isInteger(productId)) {
+  if (
+    !Number.isInteger(
+      productId
+    )
+  ) {
     notFound();
   }
 
-  const supabase = await createClient();
+  const supabase =
+    await createClient();
 
   const [
-    { data: product, error: productError },
-    { data: categories, error: categoriesError },
+    {
+      data: product,
+      error: productError,
+    },
+    {
+      data: categories,
+      error:
+        categoriesError,
+    },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -37,10 +52,14 @@ export default async function EditProductPage({
         name,
         description,
         price_cents,
+        image_path,
         is_active,
         is_available
       `)
-      .eq("id", productId)
+      .eq(
+        "id",
+        productId
+      )
       .maybeSingle(),
 
     supabase
@@ -49,8 +68,13 @@ export default async function EditProductPage({
         id,
         name
       `)
-      .eq("is_active", true)
-      .order("display_order"),
+      .eq(
+        "is_active",
+        true
+      )
+      .order(
+        "display_order"
+      ),
   ]);
 
   if (
@@ -80,24 +104,44 @@ export default async function EditProductPage({
         </h1>
 
         <p className="mt-2 text-[#76534e]">
-          Update product information and availability.
+          Update product
+          information, photo,
+          pricing, and
+          availability.
         </p>
       </div>
 
       <div className="mt-10 max-w-3xl rounded-3xl border border-[#ecd6d6] bg-white p-8">
         <ProductEditForm
           product={{
-            id: product.id,
-            categoryId: product.category_id,
-            name: product.name,
+            id:
+              product.id,
+
+            categoryId:
+              product.category_id,
+
+            name:
+              product.name,
+
             description:
-              product.description ?? "",
-            priceCents: product.price_cents,
-            isActive: product.is_active,
+              product.description ??
+              "",
+
+            priceCents:
+              product.price_cents,
+
+            imagePath:
+              product.image_path,
+
+            isActive:
+              product.is_active,
+
             isAvailable:
               product.is_available,
           }}
-          categories={categories ?? []}
+          categories={
+            categories ?? []
+          }
         />
       </div>
     </div>

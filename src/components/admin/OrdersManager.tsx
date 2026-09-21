@@ -753,13 +753,22 @@ export default function OrdersManager({
                             </p>
 
                             <PaymentStatusControls
-                            orderId={String(order.id)}
-                            currentStatus={
-                            order.payment_status as
-                             | "pending"
-                           | "paid"
-                            }
-                            />
+  orderId={String(order.id)}
+  currentStatus={
+    order.payment_status as
+      | "pending"
+      | "paid"
+  }
+  orderStatus={
+    order.order_status as
+      | "pending"
+      | "confirmed"
+      | "preparing"
+      | "ready"
+      | "completed"
+      | "cancelled"
+  }
+/>
 
                             {order.customer_note && (
                               <>

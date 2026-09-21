@@ -7,14 +7,24 @@ type PaymentStatus =
   | "pending"
   | "paid";
 
+type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "completed"
+  | "cancelled";
+
 type PaymentStatusControlsProps = {
   orderId: string;
   currentStatus: PaymentStatus;
+  orderStatus: OrderStatus;
 };
 
 export default function PaymentStatusControls({
   orderId,
   currentStatus,
+  orderStatus,
 }: PaymentStatusControlsProps) {
   const router = useRouter();
 
@@ -48,10 +58,12 @@ export default function PaymentStatusControls({
           `/api/admin/orders/${orderId}/payment`,
           {
             method: "PATCH",
+
             headers: {
               "Content-Type":
                 "application/json",
             },
+
             body: JSON.stringify({
               paymentStatus:
                 newStatus,
@@ -90,6 +102,36 @@ export default function PaymentStatusControls({
 
   const isPaid =
     paymentStatus === "paid";
+
+  const isCancelled =
+    orderStatus === "cancelled";
+
+  /*
+   * Cancelled orders:
+   * show payment information,
+   * but do not allow payment changes.
+   */
+  if (isCancelled) {
+    return (
+      <div className="mt-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {isPaid ? (
+            <span className="rounded-full bg-[#edf6ed] px-3 py-1 text-xs font-medium text-[#426b42]">
+              Paid ✓
+            </span>
+          ) : (
+            <span className="rounded-full bg-[#f5eeee] px-3 py-1 text-xs font-medium text-[#8e4d56]">
+              Not Collected
+            </span>
+          )}
+
+          <span className="text-xs text-[#94716b]">
+            Order cancelled
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3">

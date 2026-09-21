@@ -2,11 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import {
+  useState,
+} from "react";
 
-import type { FormEvent } from "react";
+import type {
+  FormEvent,
+} from "react";
 
 import { useCart } from "@/components/CartProvider";
+
+import {
+  getWebsiteMediaUrl,
+} from "@/lib/media";
 
 import {
   validateCustomerInfo,
@@ -21,7 +29,8 @@ import type {
 } from "@/types/business";
 
 type CheckoutContentsProps = {
-  availability: PickupAvailability;
+  availability:
+    PickupAvailability;
 };
 
 type PaymentMethod =
@@ -29,10 +38,40 @@ type PaymentMethod =
   | "cashapp"
   | "zelle";
 
+const paymentMethods: {
+  value: PaymentMethod;
+  label: string;
+  description: string;
+  icon: string;
+}[] = [
+  {
+    value: "cash",
+    label: "Cash at Pickup",
+    description:
+      "Pay when you receive your order.",
+    icon: "💵",
+  },
+  {
+    value: "cashapp",
+    label: "Cash App",
+    description:
+      "Payment instructions will be provided with your order.",
+    icon: "$",
+  },
+  {
+    value: "zelle",
+    label: "Zelle",
+    description:
+      "Payment instructions will be provided with your order.",
+    icon: "Z",
+  },
+];
+
 export default function CheckoutContents({
   availability,
 }: CheckoutContentsProps) {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const {
     items,
@@ -40,8 +79,10 @@ export default function CheckoutContents({
     clearCart,
   } = useCart();
 
-  const [pickupTime, setPickupTime] =
-    useState("");
+  const [
+    pickupTime,
+    setPickupTime,
+  ] = useState("");
 
   const [
     customerName,
@@ -67,7 +108,9 @@ export default function CheckoutContents({
     paymentMethod,
     setPaymentMethod,
   ] =
-    useState<PaymentMethod>("cash");
+    useState<PaymentMethod>(
+      "cash"
+    );
 
   const [
     placingOrder,
@@ -88,11 +131,14 @@ export default function CheckoutContents({
     );
 
   function clearFieldError(
-    field: keyof CustomerValidationErrors
+    field:
+      keyof CustomerValidationErrors
   ) {
     setValidationErrors(
       (currentErrors) => {
-        if (!currentErrors[field]) {
+        if (
+          !currentErrors[field]
+        ) {
           return currentErrors;
         }
 
@@ -107,30 +153,69 @@ export default function CheckoutContents({
     );
   }
 
-  if (items.length === 0) {
+  /*
+   * Empty cart
+   */
+  if (
+    items.length === 0
+  ) {
     return (
-      <div className="mt-12 rounded-3xl border border-[#ecd6d6] bg-white p-10 text-center">
-        <h2 className="text-2xl font-semibold">
-          Your cart is empty
-        </h2>
+      <div className="relative mx-auto max-w-4xl">
+        <div className="absolute -inset-3 rounded-[2.75rem] border border-[#ecd6d6]/60 bg-[#f9e5e8]/25" />
 
-        <p className="mt-3 text-[#76534e]">
-          Add something from the menu
-          before checking out.
-        </p>
+        <div className="relative rounded-[2.4rem] border border-[#ecd6d6] bg-white px-6 py-16 text-center shadow-[0_16px_50px_rgba(74,45,41,0.05)] sm:px-12">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-[#ecd6d6] bg-[#f9e5e8]">
+            <span className="text-5xl">
+              ☕
+            </span>
+          </div>
 
-        <Link
-          href="/menu"
-          className="mt-6 inline-block rounded-full bg-[#8e4d56] px-6 py-3 text-sm font-medium text-white"
-        >
-          View Menu
-        </Link>
+          <p className="mt-8 text-xs font-medium uppercase tracking-[0.3em] text-[#b76e79]">
+            Nothing to Checkout
+          </p>
+
+          <h2
+            className="mt-3 text-4xl font-bold text-[#4a2d29] sm:text-5xl"
+            style={{
+              fontFamily:
+                "var(--font-display)",
+            }}
+          >
+            Your cart is empty
+          </h2>
+
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <span className="h-px w-10 bg-[#d9aaaa]" />
+
+            <span className="h-2 w-2 rotate-45 border border-[#b76e79]" />
+
+            <span className="h-px w-10 bg-[#d9aaaa]" />
+          </div>
+
+          <p className="mx-auto mt-6 max-w-md leading-7 text-[#76534e]">
+            Add a cafecito or
+            something sweet before
+            heading to checkout.
+          </p>
+
+          <Link
+            href="/menu"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#8e4d56] px-8 py-3.5 text-sm font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#763d46]"
+          >
+            Explore the Menu
+
+            <span aria-hidden="true">
+              →
+            </span>
+          </Link>
+        </div>
       </div>
     );
   }
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
@@ -146,9 +231,14 @@ export default function CheckoutContents({
 
     const validation =
       validateCustomerInfo({
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone,
+        name:
+          customerName,
+
+        email:
+          customerEmail,
+
+        phone:
+          customerPhone,
       });
 
     if (!validation.valid) {
@@ -167,73 +257,89 @@ export default function CheckoutContents({
     setPlacingOrder(true);
 
     try {
-      const response = await fetch(
-        "/api/orders",
-        {
-          method: "POST",
+      const response =
+        await fetch(
+          "/api/orders",
+          {
+            method:
+              "POST",
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body: JSON.stringify({
-            customerName:
-              validation.normalized.name,
+            body:
+              JSON.stringify({
+                customerName:
+                  validation
+                    .normalized
+                    .name,
 
-            customerEmail:
-              validation.normalized.email,
+                customerEmail:
+                  validation
+                    .normalized
+                    .email,
 
-            customerPhone:
-              validation.normalized.phone,
+                customerPhone:
+                  validation
+                    .normalized
+                    .phone,
 
-            pickupDate:
-              availability.date,
+                pickupDate:
+                  availability.date,
 
-            pickupTime,
+                pickupTime,
 
-            paymentMethod,
+                paymentMethod,
 
-            customerNote:
-              customerNote.trim(),
+                customerNote:
+                  customerNote.trim(),
 
-            items: items.map(
-              (item) => ({
-                productId:
-                  item.productId,
+                items:
+                  items.map(
+                    (item) => ({
+                      productId:
+                        item.productId,
 
-                quantity:
-                  item.quantity,
+                      quantity:
+                        item.quantity,
 
-                instructions:
-                  item.instructions,
+                      instructions:
+                        item.instructions,
 
-                selectedOptions:
-                  item.selectedOptions.map(
-                    (option) => ({
-                      groupId:
-                        option.groupId,
+                      selectedOptions:
+                        item.selectedOptions.map(
+                          (
+                            option
+                          ) => ({
+                            groupId:
+                              option.groupId,
 
-                      valueId:
-                        option.valueId,
+                            valueId:
+                              option.valueId,
+                          })
+                        ),
                     })
                   ),
-              })
-            ),
-          }),
-        }
-      );
+              }),
+          }
+        );
 
       const result =
         await response.json();
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         setErrorMessage(
           result.error ??
             "We could not place your order."
         );
 
-        setPlacingOrder(false);
+        setPlacingOrder(
+          false
+        );
 
         return;
       }
@@ -241,119 +347,213 @@ export default function CheckoutContents({
       clearCart();
 
       router.push(
-  `/order-confirmation/${result.confirmationToken}`
-);
-
+        `/order-confirmation/${result.confirmationToken}`
+      );
     } catch {
       setErrorMessage(
         "Something went wrong while placing your order."
       );
 
-      setPlacingOrder(false);
+      setPlacingOrder(
+        false
+      );
     }
   }
 
+  const selectedPickupLabel =
+    availability.slots.find(
+      (slot) =>
+        slot.value ===
+        pickupTime
+    )?.label;
+
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={
+        handleSubmit
+      }
       noValidate
-      className="mt-12 grid gap-10 lg:grid-cols-[1fr_340px]"
+      className="grid gap-10 lg:grid-cols-[1fr_370px] lg:items-start"
     >
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-[#b76e79]">
-            Pickup
-          </p>
+      {/* LEFT COLUMN */}
+      <div className="space-y-7">
+        {/* Pickup */}
+        <section className="rounded-[2rem] border border-[#ecd6d6] bg-white p-6 shadow-[0_10px_35px_rgba(74,45,41,0.04)] sm:p-8">
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-[#b76e79]" />
 
-          <h2 className="mt-2 text-2xl font-semibold">
+            <p className="text-xs font-medium uppercase tracking-[0.27em] text-[#b76e79]">
+              Pickup
+            </p>
+          </div>
+
+          <h2
+            className="mt-4 text-3xl font-bold text-[#4a2d29] sm:text-4xl"
+            style={{
+              fontFamily:
+                "var(--font-display)",
+            }}
+          >
             {availability.dayLabel}
           </h2>
 
-          <p className="mt-3 text-sm leading-6 text-[#76534e]">
+          <p className="mt-4 max-w-xl text-sm leading-6 text-[#76534e]">
             Orders currently require
             approximately{" "}
-            {
-              availability.settings
-                .preparationTimeMinutes
-            }{" "}
-            minutes of preparation.
+            <span className="font-medium text-[#4a2d29]">
+              {
+                availability
+                  .settings
+                  .preparationTimeMinutes
+              }{" "}
+              minutes
+            </span>{" "}
+            of preparation.
           </p>
 
-          {availability.settings
+          {availability
+            .settings
             .publicZipCode ? (
-            <p className="mt-2 text-sm text-[#76534e]">
-              Pickup area:{" "}
-              {
-                availability.settings
-                  .publicZipCode
-              }
-            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#fff8f7] px-4 py-2 text-sm text-[#76534e]">
+              <span>
+                📍
+              </span>
+
+              <span>
+                Pickup area:{" "}
+                <strong className="font-medium text-[#4a2d29]">
+                  {
+                    availability
+                      .settings
+                      .publicZipCode
+                  }
+                </strong>
+              </span>
+            </div>
           ) : (
-            <p className="mt-2 text-sm text-[#76534e]">
-              Pickup only. The exact
-              address will be provided
-              after order confirmation.
-            </p>
+            <div className="mt-4 rounded-2xl bg-[#fff8f7] p-4 text-sm leading-6 text-[#76534e]">
+              The exact pickup
+              address will be shown
+              after your order is
+              confirmed.
+            </div>
           )}
 
-          {!availability.isOpen ? (
-            <div className="mt-6 rounded-2xl bg-[#f9e5e8] p-5">
+          {!availability
+            .isOpen ? (
+            <div className="mt-7 rounded-2xl border border-[#ecd6d6] bg-[#f9e5e8] p-5">
               <p className="font-medium text-[#8e4d56]">
-                {availability.reason}
+                {
+                  availability.reason
+                }
               </p>
             </div>
           ) : (
             <>
-              <h3 className="mt-8 font-semibold">
-                Available Pickup Times
-              </h3>
+              <div className="mt-8 border-t border-[#f0dddd] pt-7">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-[#4a2d29]">
+                      Available Pickup
+                      Times
+                    </h3>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {availability.slots.map(
-                  (slot) => {
-                    const selected =
-                      pickupTime ===
-                      slot.value;
+                    <p className="mt-1 text-sm text-[#94716b]">
+                      Choose when
+                      you&apos;d like
+                      to pick up your
+                      order.
+                    </p>
+                  </div>
 
-                    return (
-                      <button
-                        key={slot.value}
-                        type="button"
-                        onClick={() => {
-                          setPickupTime(
-                            slot.value
-                          );
+                  {selectedPickupLabel && (
+                    <span className="rounded-full bg-[#f9e5e8] px-4 py-2 text-xs font-medium text-[#8e4d56]">
+                      Selected:{" "}
+                      {
+                        selectedPickupLabel
+                      }
+                    </span>
+                  )}
+                </div>
 
-                          setErrorMessage(
-                            ""
-                          );
-                        }}
-                        className={`rounded-2xl border px-4 py-3 text-sm transition ${
-                          selected
-                            ? "border-[#8e4d56] bg-[#8e4d56] text-white"
-                            : "border-[#ecd6d6] bg-white text-[#4a2d29] hover:border-[#8e4d56]"
-                        }`}
-                      >
-                        {slot.label}
-                      </button>
-                    );
-                  }
-                )}
+                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {availability
+                    .slots.map(
+                      (slot) => {
+                        const selected =
+                          pickupTime ===
+                          slot.value;
+
+                        return (
+                          <button
+                            key={
+                              slot.value
+                            }
+                            type="button"
+                            onClick={() => {
+                              setPickupTime(
+                                slot.value
+                              );
+
+                              setErrorMessage(
+                                ""
+                              );
+                            }}
+                            className={`
+                              rounded-2xl border px-4 py-3.5 text-sm font-medium transition
+                              ${
+                                selected
+                                  ? "border-[#8e4d56] bg-[#8e4d56] text-white shadow-sm"
+                                  : "border-[#ecd6d6] bg-[#fffdfb] text-[#4a2d29] hover:border-[#8e4d56] hover:bg-[#fff8f7]"
+                              }
+                            `}
+                          >
+                            {
+                              slot.label
+                            }
+                          </button>
+                        );
+                      }
+                    )}
+                </div>
               </div>
             </>
           )}
         </section>
 
-        <section className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-[#b76e79]">
+        {/* Customer information */}
+        <section className="rounded-[2rem] border border-[#ecd6d6] bg-white p-6 shadow-[0_10px_35px_rgba(74,45,41,0.04)] sm:p-8">
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-[#b76e79]" />
+
+            <p className="text-xs font-medium uppercase tracking-[0.27em] text-[#b76e79]">
+              Your Details
+            </p>
+          </div>
+
+          <h2
+            className="mt-4 text-3xl font-bold text-[#4a2d29]"
+            style={{
+              fontFamily:
+                "var(--font-display)",
+            }}
+          >
             Customer Information
+          </h2>
+
+          <p className="mt-2 text-sm leading-6 text-[#94716b]">
+            We&apos;ll use this
+            information for your
+            order confirmation and
+            pickup updates.
           </p>
 
-          <div className="mt-6 grid gap-5">
-            <div>
+          <div className="mt-7 grid gap-5 sm:grid-cols-2">
+            {/* Name */}
+            <div className="sm:col-span-2">
               <label
                 htmlFor="customerName"
-                className="text-sm font-medium"
+                className="text-sm font-medium text-[#4a2d29]"
               >
                 Name
               </label>
@@ -361,10 +561,18 @@ export default function CheckoutContents({
               <input
                 id="customerName"
                 type="text"
-                value={customerName}
-                onChange={(event) => {
+                autoComplete="name"
+                placeholder="Your name"
+                value={
+                  customerName
+                }
+                onChange={(
+                  event
+                ) => {
                   setCustomerName(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   );
 
                   clearFieldError(
@@ -381,10 +589,10 @@ export default function CheckoutContents({
                     ? "customerNameError"
                     : undefined
                 }
-                className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 outline-none transition ${
+                className={`mt-2 w-full rounded-2xl border px-4 py-3.5 outline-none transition placeholder:text-[#b79b96] ${
                   validationErrors.name
                     ? "border-[#b76e79] bg-[#fff7f7] focus:border-[#8e4d56]"
-                    : "border-[#ecd6d6] focus:border-[#8e4d56]"
+                    : "border-[#ecd6d6] bg-[#fffdfb] focus:border-[#8e4d56]"
                 }`}
               />
 
@@ -400,10 +608,11 @@ export default function CheckoutContents({
               )}
             </div>
 
+            {/* Email */}
             <div>
               <label
                 htmlFor="customerEmail"
-                className="text-sm font-medium"
+                className="text-sm font-medium text-[#4a2d29]"
               >
                 Email
               </label>
@@ -413,10 +622,17 @@ export default function CheckoutContents({
                 type="email"
                 inputMode="email"
                 autoComplete="email"
-                value={customerEmail}
-                onChange={(event) => {
+                placeholder="you@example.com"
+                value={
+                  customerEmail
+                }
+                onChange={(
+                  event
+                ) => {
                   setCustomerEmail(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   );
 
                   clearFieldError(
@@ -433,10 +649,10 @@ export default function CheckoutContents({
                     ? "customerEmailError"
                     : undefined
                 }
-                className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 outline-none transition ${
+                className={`mt-2 w-full rounded-2xl border px-4 py-3.5 outline-none transition placeholder:text-[#b79b96] ${
                   validationErrors.email
                     ? "border-[#b76e79] bg-[#fff7f7] focus:border-[#8e4d56]"
-                    : "border-[#ecd6d6] focus:border-[#8e4d56]"
+                    : "border-[#ecd6d6] bg-[#fffdfb] focus:border-[#8e4d56]"
                 }`}
               />
 
@@ -452,10 +668,11 @@ export default function CheckoutContents({
               )}
             </div>
 
+            {/* Phone */}
             <div>
               <label
                 htmlFor="customerPhone"
-                className="text-sm font-medium"
+                className="text-sm font-medium text-[#4a2d29]"
               >
                 Phone
               </label>
@@ -465,10 +682,17 @@ export default function CheckoutContents({
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                value={customerPhone}
-                onChange={(event) => {
+                placeholder="(901) 555-1234"
+                value={
+                  customerPhone
+                }
+                onChange={(
+                  event
+                ) => {
                   setCustomerPhone(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   );
 
                   clearFieldError(
@@ -485,10 +709,10 @@ export default function CheckoutContents({
                     ? "customerPhoneError"
                     : undefined
                 }
-                className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3 outline-none transition ${
+                className={`mt-2 w-full rounded-2xl border px-4 py-3.5 outline-none transition placeholder:text-[#b79b96] ${
                   validationErrors.phone
                     ? "border-[#b76e79] bg-[#fff7f7] focus:border-[#8e4d56]"
-                    : "border-[#ecd6d6] focus:border-[#8e4d56]"
+                    : "border-[#ecd6d6] bg-[#fffdfb] focus:border-[#8e4d56]"
                 }`}
               />
 
@@ -504,10 +728,11 @@ export default function CheckoutContents({
               )}
             </div>
 
-            <div>
+            {/* Order note */}
+            <div className="sm:col-span-2">
               <label
                 htmlFor="customerNote"
-                className="text-sm font-medium"
+                className="text-sm font-medium text-[#4a2d29]"
               >
                 Order Note{" "}
                 <span className="font-normal text-[#94716b]">
@@ -517,165 +742,366 @@ export default function CheckoutContents({
 
               <textarea
                 id="customerNote"
-                value={customerNote}
-                onChange={(event) =>
+                value={
+                  customerNote
+                }
+                onChange={(
+                  event
+                ) =>
                   setCustomerNote(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   )
                 }
                 placeholder="Anything we should know?"
-                className="mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#ecd6d6] bg-white p-4 outline-none focus:border-[#8e4d56]"
+                className="mt-2 min-h-28 w-full resize-none rounded-2xl border border-[#ecd6d6] bg-[#fffdfb] p-4 outline-none transition placeholder:text-[#b79b96] focus:border-[#8e4d56]"
               />
             </div>
           </div>
         </section>
 
-        <section className="rounded-3xl border border-[#ecd6d6] bg-white p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-[#b76e79]">
-            Payment
-          </p>
+        {/* Payment */}
+        <section className="rounded-[2rem] border border-[#ecd6d6] bg-white p-6 shadow-[0_10px_35px_rgba(74,45,41,0.04)] sm:p-8">
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-[#b76e79]" />
 
-          <h2 className="mt-2 text-2xl font-semibold">
+            <p className="text-xs font-medium uppercase tracking-[0.27em] text-[#b76e79]">
+              Payment
+            </p>
+          </div>
+
+          <h2
+            className="mt-4 text-3xl font-bold text-[#4a2d29]"
+            style={{
+              fontFamily:
+                "var(--font-display)",
+            }}
+          >
             Payment Method
           </h2>
 
-          <div className="mt-6 grid gap-3">
-            {[
-              {
-                value: "cash",
-                label: "Cash at Pickup",
-              },
-              {
-                value: "cashapp",
-                label: "Cash App",
-              },
-              {
-                value: "zelle",
-                label: "Zelle",
-              },
-            ].map((method) => (
-              <label
-                key={method.value}
-                className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#ecd6d6] p-4"
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value={method.value}
-                  checked={
-                    paymentMethod ===
-                    method.value
-                  }
-                  onChange={() =>
-                    setPaymentMethod(
-                      method.value as PaymentMethod
-                    )
-                  }
-                />
+          <p className="mt-2 text-sm leading-6 text-[#94716b]">
+            Select how you plan
+            to pay for your order.
+          </p>
 
-                <span>
-                  {method.label}
-                </span>
-              </label>
-            ))}
+          <div className="mt-7 grid gap-3">
+            {paymentMethods.map(
+              (method) => {
+                const selected =
+                  paymentMethod ===
+                  method.value;
 
-            <div className="rounded-2xl border border-dashed border-[#ecd6d6] p-4 text-sm text-[#94716b]">
-              Card payment will be added
-              later through the website.
+                return (
+                  <label
+                    key={
+                      method.value
+                    }
+                    className={`
+                      flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition
+                      ${
+                        selected
+                          ? "border-[#8e4d56] bg-[#fff5f4] shadow-[0_6px_18px_rgba(142,77,86,0.08)]"
+                          : "border-[#ecd6d6] bg-[#fffdfb] hover:border-[#d9aaaa]"
+                      }
+                    `}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={
+                        method.value
+                      }
+                      checked={
+                        selected
+                      }
+                      onChange={() =>
+                        setPaymentMethod(
+                          method.value
+                        )
+                      }
+                      className="sr-only"
+                    />
+
+                    <span
+                      className={`
+                        flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-semibold
+                        ${
+                          selected
+                            ? "border-[#8e4d56] bg-[#8e4d56] text-white"
+                            : "border-[#ecd6d6] bg-white text-[#8e4d56]"
+                        }
+                      `}
+                    >
+                      {
+                        method.icon
+                      }
+                    </span>
+
+                    <div className="flex-1">
+                      <p className="font-medium text-[#4a2d29]">
+                        {
+                          method.label
+                        }
+                      </p>
+
+                      <p className="mt-1 text-sm text-[#94716b]">
+                        {
+                          method.description
+                        }
+                      </p>
+                    </div>
+
+                    <span
+                      className={`
+                        flex h-5 w-5 items-center justify-center rounded-full border
+                        ${
+                          selected
+                            ? "border-[#8e4d56] bg-[#8e4d56]"
+                            : "border-[#d9aaaa] bg-white"
+                        }
+                      `}
+                    >
+                      {selected && (
+                        <span className="text-[10px] font-bold text-white">
+                          ✓
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              }
+            )}
+
+            <div className="rounded-2xl border border-dashed border-[#ecd6d6] bg-[#fff8f7] p-4 text-sm leading-6 text-[#94716b]">
+              💳 Online card
+              payments can be added
+              later without changing
+              the rest of the checkout
+              flow.
             </div>
           </div>
         </section>
       </div>
 
-      <aside className="h-fit rounded-3xl border border-[#ecd6d6] bg-white p-6 lg:sticky lg:top-6">
-        <h2 className="text-xl font-semibold">
-          Order Summary
-        </h2>
+      {/* RIGHT COLUMN */}
+      <aside className="lg:sticky lg:top-28">
+        <div className="relative">
+          <div className="absolute -inset-2 rounded-[2.25rem] border border-[#ecd6d6]/60 bg-[#f9e5e8]/25" />
 
-        <div className="mt-5 space-y-4">
-          {items.map((item) => (
-            <div
-              key={item.cartId}
-              className="text-sm"
+          <div className="relative rounded-[2rem] border border-[#ecd6d6] bg-white p-6 shadow-[0_14px_40px_rgba(74,45,41,0.05)] sm:p-7">
+            <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#b76e79]">
+              Final Review
+            </p>
+
+            <h2
+              className="mt-2 text-3xl font-bold text-[#4a2d29]"
+              style={{
+                fontFamily:
+                  "var(--font-display)",
+              }}
             >
-              <div className="flex justify-between gap-4">
-                <span>
-                  {item.quantity} ×{" "}
-                  {item.name}
-                </span>
+              Order Summary
+            </h2>
 
-                <span>
-                  $
-                  {(
-                    item.unitPrice *
-                    item.quantity
-                  ).toFixed(2)}
-                </span>
-              </div>
+            <div className="mt-5 flex items-center gap-2">
+              <span className="h-px w-8 bg-[#d9aaaa]" />
 
-              {item.selectedOptions.map(
-                (option) => (
-                  <p
-                    key={`${item.cartId}-${option.groupId}-${option.valueId}`}
-                    className="mt-1 text-xs text-[#94716b]"
-                  >
-                    {option.groupName}:{" "}
-                    {option.valueName}
-                  </p>
-                )
+              <span className="h-1.5 w-1.5 rotate-45 border border-[#b76e79]" />
+            </div>
+
+            {/* Products */}
+            <div className="mt-7 space-y-5">
+              {items.map(
+                (item) => {
+                  const imageUrl =
+                    getWebsiteMediaUrl(
+                      item.imagePath ??
+                        null
+                    );
+
+                  return (
+                    <div
+                      key={
+                        item.cartId
+                      }
+                      className="border-b border-[#f0dddd] pb-5 last:border-b-0"
+                    >
+                      <div className="flex gap-3">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#f9e5e8]">
+                          {imageUrl ? (
+                            <div
+                              className="h-full w-full bg-cover bg-center bg-no-repeat"
+                              style={{
+                                backgroundImage:
+                                  `url("${imageUrl}")`,
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-2xl">
+                              ☕
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-medium leading-5 text-[#4a2d29]">
+                              {
+                                item.quantity
+                              }{" "}
+                              ×{" "}
+                              {
+                                item.name
+                              }
+                            </p>
+
+                            <span className="shrink-0 text-sm font-medium text-[#8e4d56]">
+                              $
+                              {(
+                                item.unitPrice *
+                                item.quantity
+                              ).toFixed(
+                                2
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 space-y-1">
+                            {item.selectedOptions.map(
+                              (
+                                option
+                              ) => (
+                                <p
+                                  key={`${item.cartId}-${option.groupId}-${option.valueId}`}
+                                  className="text-xs leading-5 text-[#94716b]"
+                                >
+                                  {
+                                    option.groupName
+                                  }
+                                  :{" "}
+                                  {
+                                    option.valueName
+                                  }
+                                </p>
+                              )
+                            )}
+                          </div>
+
+                          {item.instructions && (
+                            <p className="mt-2 text-xs italic leading-5 text-[#94716b]">
+                              “
+                              {
+                                item.instructions
+                              }
+                              ”
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
               )}
             </div>
-          ))}
-        </div>
 
-        <div className="my-6 h-px bg-[#ecd6d6]" />
+            {/* Pickup */}
+            {selectedPickupLabel && (
+              <div className="mt-6 rounded-2xl bg-[#fff8f7] p-4">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#b76e79]">
+                  Pickup Time
+                </p>
 
-        <div className="flex justify-between font-semibold">
-          <span>Total</span>
+                <p className="mt-2 font-medium text-[#4a2d29]">
+                  {
+                    selectedPickupLabel
+                  }
+                </p>
 
-          <span>
-            ${subtotal.toFixed(2)}
-          </span>
-        </div>
+                <p className="mt-1 text-xs text-[#94716b]">
+                  {
+                    availability.dayLabel
+                  }
+                </p>
+              </div>
+            )}
 
-        {pickupTime && (
-          <p className="mt-5 text-sm text-[#76534e]">
-            Pickup:{" "}
-            {
-              availability.slots.find(
-                (slot) =>
-                  slot.value ===
-                  pickupTime
-              )?.label
-            }
-          </p>
-        )}
+            <div className="my-6 h-px bg-[#ecd6d6]" />
 
-        {errorMessage && (
-          <div className="mt-5 rounded-2xl bg-[#f9e5e8] p-4 text-sm text-[#8e4d56]">
-            {errorMessage}
+            <div className="flex items-end justify-between gap-4">
+              <span className="font-semibold">
+                Total
+              </span>
+
+              <span
+                className="text-4xl font-bold text-[#4a2d29]"
+                style={{
+                  fontFamily:
+                    "var(--font-display)",
+                }}
+              >
+                $
+                {subtotal.toFixed(
+                  2
+                )}
+              </span>
+            </div>
+
+            <p className="mt-4 text-xs leading-5 text-[#94716b]">
+              Your order will be
+              submitted to Dulce
+              Cafecito for
+              confirmation.
+            </p>
+
+            {errorMessage && (
+              <div
+                role="alert"
+                className="mt-5 rounded-2xl border border-[#edc9cc] bg-[#f9e5e8] p-4 text-sm leading-6 text-[#8e4d56]"
+              >
+                {
+                  errorMessage
+                }
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={
+                placingOrder ||
+                !availability.isOpen ||
+                !pickupTime
+              }
+              className="mt-7 flex w-full items-center justify-center gap-2 rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#763d46] hover:shadow-md disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-50"
+            >
+              {placingOrder
+                ? "Placing Order..."
+                : "Place Order"}
+
+              {!placingOrder && (
+                <span aria-hidden="true">
+                  →
+                </span>
+              )}
+            </button>
+
+            {!pickupTime &&
+              availability.isOpen && (
+                <p className="mt-3 text-center text-xs text-[#94716b]">
+                  Choose a pickup
+                  time to continue.
+                </p>
+              )}
+
+            <Link
+              href="/cart"
+              className="mt-5 block text-center text-sm font-medium text-[#8e4d56] transition hover:text-[#763d46]"
+            >
+              ← Back to Cart
+            </Link>
           </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={
-            placingOrder ||
-            !availability.isOpen ||
-            !pickupTime
-          }
-          className="mt-7 w-full rounded-full bg-[#8e4d56] px-6 py-4 font-medium text-white transition hover:bg-[#763d46] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {placingOrder
-            ? "Placing Order..."
-            : "Place Order"}
-        </button>
-
-        <p className="mt-4 text-xs leading-5 text-[#94716b]">
-          Your order will be submitted
-          to Dulce Cafecito for
-          confirmation.
-        </p>
+        </div>
       </aside>
     </form>
   );

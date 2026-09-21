@@ -37,11 +37,27 @@ type OrderStatusEmailProps = {
     | "cancelled";
 };
 
+type NewOrderAdminEmailProps = {
+  orderNumber: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  pickupDate: string;
+  pickupTime: string;
+  totalCents: number;
+  paymentMethod: string;
+};
+
 type StatusEmailContent = {
   subject: string;
+  eyebrow: string;
   heading: string;
   message: string;
   buttonText: string;
+
+  badgeText: string;
+  badgeBackground: string;
+  badgeColor: string;
 };
 
 function escapeHtml(
@@ -52,14 +68,22 @@ function escapeHtml(
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
 
 function formatPickupDate(
   date: string
 ) {
-  const [year, month, day] =
-    date.split("-").map(Number);
+  const [
+    year,
+    month,
+    day,
+  ] = date
+    .split("-")
+    .map(Number);
 
   return new Intl.DateTimeFormat(
     "en-US",
@@ -81,8 +105,10 @@ function formatPickupDate(
 function formatPickupTime(
   time: string
 ) {
-  const [hoursString, minutes] =
-    time.split(":");
+  const [
+    hoursString,
+    minutes = "00",
+  ] = time.split(":");
 
   const hours =
     Number(hoursString);
@@ -98,36 +124,512 @@ function formatPickupTime(
   return `${displayHours}:${minutes} ${period}`;
 }
 
+function formatMoney(
+  cents: number
+) {
+  return `$${(
+    cents / 100
+  ).toFixed(2)}`;
+}
+
 function paymentLabel(
   method: string
 ) {
-  if (method === "cash") {
+  if (
+    method === "cash"
+  ) {
     return "Cash at Pickup";
   }
 
-  if (method === "cashapp") {
+  if (
+    method === "cashapp"
+  ) {
     return "Cash App";
   }
 
-  if (method === "zelle") {
+  if (
+    method === "zelle"
+  ) {
     return "Zelle";
   }
 
-  if (method === "card") {
+  if (
+    method === "card"
+  ) {
     return "Card";
   }
 
   return method;
 }
 
+function detailRow(
+  label: string,
+  value: string
+) {
+  return `
+    <tr>
+      <td
+        style="
+          padding: 8px 0;
+          color: #94716b;
+          font-size: 13px;
+          line-height: 1.5;
+        "
+      >
+        ${label}
+      </td>
+
+      <td
+        align="right"
+        style="
+          padding: 8px 0;
+          color: #4a2d29;
+          font-size: 14px;
+          line-height: 1.5;
+          font-weight: 600;
+        "
+      >
+        ${value}
+      </td>
+    </tr>
+  `;
+}
+
+type BrandEmailProps = {
+  preheader: string;
+
+  eyebrow: string;
+
+  heading: string;
+
+  introHtml: string;
+
+  badgeText?: string;
+
+  badgeBackground?: string;
+
+  badgeColor?: string;
+
+  detailsHtml?: string;
+
+  noteHtml?: string;
+
+  buttonUrl: string;
+
+  buttonText: string;
+
+  footerText: string;
+};
+
+function renderBrandEmail({
+  preheader,
+  eyebrow,
+  heading,
+  introHtml,
+  badgeText,
+  badgeBackground =
+    "#f9e5e8",
+  badgeColor =
+    "#8e4d56",
+  detailsHtml,
+  noteHtml,
+  buttonUrl,
+  buttonText,
+  footerText,
+}: BrandEmailProps) {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1"
+        />
+      </head>
+
+      <body
+        style="
+          margin: 0;
+          padding: 0;
+          background: #fff8f4;
+          color: #4a2d29;
+          font-family: Arial, Helvetica, sans-serif;
+        "
+      >
+        <div
+          style="
+            display: none;
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+          "
+        >
+          ${preheader}
+        </div>
+
+        <table
+          role="presentation"
+          width="100%"
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          style="
+            width: 100%;
+            background: #fff8f4;
+          "
+        >
+          <tr>
+            <td
+              align="center"
+              style="
+                padding: 42px 18px;
+              "
+            >
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="
+                  width: 100%;
+                  max-width: 620px;
+                "
+              >
+                <!-- Brand -->
+                <tr>
+                  <td
+                    align="center"
+                    style="
+                      padding-bottom: 22px;
+                    "
+                  >
+                    <p
+                      style="
+                        margin: 0;
+                        color: #b76e79;
+                        font-size: 11px;
+                        font-weight: 600;
+                        letter-spacing: 4px;
+                        text-transform: uppercase;
+                      "
+                    >
+                      Dulce Cafecito
+                    </p>
+
+                    <p
+                      style="
+                        margin: 11px 0 0;
+                        color: #d9aaaa;
+                        font-size: 15px;
+                        letter-spacing: 5px;
+                      "
+                    >
+                      ── ◇ ──
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Main Card -->
+                <tr>
+                  <td
+                    style="
+                      overflow: hidden;
+                      background: #ffffff;
+                      border: 1px solid #ecd6d6;
+                      border-radius: 28px;
+                    "
+                  >
+                    <table
+                      role="presentation"
+                      width="100%"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                    >
+                      <!-- Header -->
+                      <tr>
+                        <td
+                          align="center"
+                          style="
+                            padding:
+                              44px
+                              36px
+                              30px;
+                          "
+                        >
+                          <p
+                            style="
+                              margin: 0;
+                              color: #b76e79;
+                              font-size: 11px;
+                              font-weight: 600;
+                              letter-spacing: 3px;
+                              text-transform: uppercase;
+                            "
+                          >
+                            ${eyebrow}
+                          </p>
+
+                          <h1
+                            style="
+                              margin:
+                                14px
+                                auto
+                                0;
+                              color: #4a2d29;
+                              font-family:
+                                Georgia,
+                                'Times New Roman',
+                                serif;
+                              font-size: 38px;
+                              line-height: 1.12;
+                              font-weight: 700;
+                              letter-spacing: -0.8px;
+                            "
+                          >
+                            ${heading}
+                          </h1>
+
+                          ${
+                            badgeText
+                              ? `
+                                <div
+                                  style="
+                                    margin-top: 20px;
+                                  "
+                                >
+                                  <span
+                                    style="
+                                      display: inline-block;
+                                      padding: 8px 14px;
+                                      border-radius: 999px;
+                                      background: ${badgeBackground};
+                                      color: ${badgeColor};
+                                      font-size: 10px;
+                                      font-weight: 700;
+                                      letter-spacing: 1.5px;
+                                      text-transform: uppercase;
+                                    "
+                                  >
+                                    ${badgeText}
+                                  </span>
+                                </div>
+                              `
+                              : ""
+                          }
+
+                          <p
+                            style="
+                              margin:
+                                22px
+                                auto
+                                0;
+                              max-width: 470px;
+                              color: #76534e;
+                              font-size: 15px;
+                              line-height: 1.8;
+                            "
+                          >
+                            ${introHtml}
+                          </p>
+
+                          <p
+                            style="
+                              margin:
+                                20px
+                                0
+                                0;
+                              color: #d9aaaa;
+                              font-size: 14px;
+                              letter-spacing: 5px;
+                            "
+                          >
+                            ─ ◇ • ◇ ─
+                          </p>
+                        </td>
+                      </tr>
+
+                      ${
+                        detailsHtml
+                          ? `
+                            <!-- Details -->
+                            <tr>
+                              <td
+                                style="
+                                  padding:
+                                    0
+                                    36px
+                                    28px;
+                                "
+                              >
+                                <div
+                                  style="
+                                    padding: 22px;
+                                    background: #fff8f7;
+                                    border: 1px solid #f1dddd;
+                                    border-radius: 20px;
+                                  "
+                                >
+                                  <table
+                                    role="presentation"
+                                    width="100%"
+                                    cellspacing="0"
+                                    cellpadding="0"
+                                    border="0"
+                                  >
+                                    ${detailsHtml}
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          `
+                          : ""
+                      }
+
+                      ${
+                        noteHtml
+                          ? `
+                            <!-- Note -->
+                            <tr>
+                              <td
+                                style="
+                                  padding:
+                                    0
+                                    36px
+                                    10px;
+                                "
+                              >
+                                <div
+                                  style="
+                                    padding:
+                                      17px
+                                      18px;
+                                    border-radius: 16px;
+                                    background: #fdf1df;
+                                    color: #76534e;
+                                    font-size: 13px;
+                                    line-height: 1.7;
+                                  "
+                                >
+                                  ${noteHtml}
+                                </div>
+                              </td>
+                            </tr>
+                          `
+                          : ""
+                      }
+
+                      <!-- CTA -->
+                      <tr>
+                        <td
+                          align="center"
+                          style="
+                            padding:
+                              25px
+                              36px
+                              36px;
+                          "
+                        >
+                          <a
+                            href="${buttonUrl}"
+                            style="
+                              display: inline-block;
+                              padding:
+                                15px
+                                28px;
+                              border-radius: 999px;
+                              background: #8e4d56;
+                              color: #ffffff;
+                              font-size: 14px;
+                              font-weight: 700;
+                              text-decoration: none;
+                            "
+                          >
+                            ${buttonText} →
+                          </a>
+
+                          <p
+                            style="
+                              margin:
+                                26px
+                                auto
+                                0;
+                              max-width: 460px;
+                              color: #94716b;
+                              font-size: 11px;
+                              line-height: 1.7;
+                            "
+                          >
+                            ${footerText}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td
+                    align="center"
+                    style="
+                      padding-top: 26px;
+                    "
+                  >
+                    <p
+                      style="
+                        margin: 0;
+                        color: #b76e79;
+                        font-family:
+                          Georgia,
+                          'Times New Roman',
+                          serif;
+                        font-size: 19px;
+                      "
+                    >
+                      ♡ ☕
+                    </p>
+
+                    <p
+                      style="
+                        margin:
+                          8px
+                          0
+                          0;
+                        color: #94716b;
+                        font-size: 11px;
+                        letter-spacing: 2px;
+                        text-transform: uppercase;
+                      "
+                    >
+                      Made with a little sweetness
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
 function getStatusEmailContent(
-  status: OrderStatusEmailProps["status"],
+  status:
+    OrderStatusEmailProps["status"],
   orderNumber: number
 ): StatusEmailContent {
-  if (status === "confirmed") {
+  if (
+    status === "confirmed"
+  ) {
     return {
       subject:
         `Dulce Cafecito Order #${orderNumber} Confirmed ☕`,
+
+      eyebrow:
+        `Order #${orderNumber}`,
 
       heading:
         "Your Order Is Confirmed!",
@@ -137,28 +639,54 @@ function getStatusEmailContent(
 
       buttonText:
         "View Pickup Details",
+
+      badgeText:
+        "Confirmed",
+
+      badgeBackground:
+        "#edf5ea",
+
+      badgeColor:
+        "#426b42",
     };
   }
 
-  if (status === "ready") {
+  if (
+    status === "ready"
+  ) {
     return {
       subject:
         `Dulce Cafecito Order #${orderNumber} Is Ready ☕`,
 
+      eyebrow:
+        `Order #${orderNumber}`,
+
       heading:
-        "Your Order Is Ready!",
+        "Your Cafecito Is Ready!",
 
       message:
-        "Your Dulce Cafecito order is ready for pickup. Please use your secure order page for the pickup address and instructions.",
+        "Your Dulce Cafecito order is ready for pickup. Open your secure order page for the pickup address and any pickup instructions.",
 
       buttonText:
         "View Pickup Details",
+
+      badgeText:
+        "Ready for Pickup",
+
+      badgeBackground:
+        "#f9e5e8",
+
+      badgeColor:
+        "#8e4d56",
     };
   }
 
   return {
     subject:
       `Dulce Cafecito Order #${orderNumber} Cancelled`,
+
+    eyebrow:
+      `Order #${orderNumber}`,
 
     heading:
       "Order Cancelled",
@@ -168,6 +696,15 @@ function getStatusEmailContent(
 
     buttonText:
       "View Order",
+
+    badgeText:
+      "Cancelled",
+
+    badgeBackground:
+      "#f3eeee",
+
+    badgeColor:
+      "#76534e",
   };
 }
 
@@ -181,17 +718,23 @@ export async function sendOrderReceivedEmail({
   totalCents,
   paymentMethod,
 }: OrderReceivedEmailProps) {
-  if (!process.env.RESEND_API_KEY) {
+  if (
+    !process.env.RESEND_API_KEY
+  ) {
     throw new Error(
       "RESEND_API_KEY is not configured."
     );
   }
 
   const orderUrl =
-    `${appUrl}/order-confirmation/${confirmationToken}`;
+    `${appUrl}/order-confirmation/${encodeURIComponent(
+      confirmationToken
+    )}`;
 
   const safeCustomerName =
-    escapeHtml(customerName);
+    escapeHtml(
+      customerName
+    );
 
   const formattedDate =
     formatPickupDate(
@@ -204,9 +747,9 @@ export async function sendOrderReceivedEmail({
     );
 
   const formattedTotal =
-    `$${(
-      totalCents / 100
-    ).toFixed(2)}`;
+    formatMoney(
+      totalCents
+    );
 
   const safePaymentMethod =
     escapeHtml(
@@ -214,6 +757,100 @@ export async function sendOrderReceivedEmail({
         paymentMethod
       )
     );
+
+  const html =
+    renderBrandEmail({
+      preheader:
+        `We received Dulce Cafecito order #${orderNumber}.`,
+
+      eyebrow:
+        `Order #${orderNumber}`,
+
+      heading:
+        "Order Received!",
+
+      badgeText:
+        "Waiting for Confirmation",
+
+      badgeBackground:
+        "#fdf1df",
+
+      badgeColor:
+        "#96620b",
+
+      introHtml: `
+        Hi <strong>${safeCustomerName}</strong>,
+        we received your order.
+        We&apos;ll let you know as soon as
+        Dulce Cafecito confirms it.
+      `,
+
+      detailsHtml: `
+        ${detailRow(
+          "Pickup Date",
+          formattedDate
+        )}
+
+        ${detailRow(
+          "Pickup Time",
+          formattedTime
+        )}
+
+        ${detailRow(
+          "Order Total",
+          formattedTotal
+        )}
+
+        ${detailRow(
+          "Payment",
+          safePaymentMethod
+        )}
+      `,
+
+      noteHtml: `
+        <strong
+          style="
+            color: #4a2d29;
+          "
+        >
+          Pickup location
+        </strong>
+        <br />
+        The exact pickup address will appear on your
+        secure order page after Dulce Cafecito confirms
+        your order.
+      `,
+
+      buttonUrl:
+        orderUrl,
+
+      buttonText:
+        "View My Order",
+
+      footerText:
+        "Keep this email so you can return to your order status and pickup details later.",
+    });
+
+  const text = `
+Dulce Cafecito
+
+Order Received!
+Order #${orderNumber}
+
+Hi ${customerName},
+
+We received your order and will let you know when Dulce Cafecito confirms it.
+
+Pickup Date: ${formattedDate}
+Pickup Time: ${formattedTime}
+Total: ${formattedTotal}
+Payment: ${paymentLabel(paymentMethod)}
+
+The exact pickup address will appear after your order is confirmed.
+
+View your order:
+${orderUrl}
+  `.trim();
 
   const {
     data,
@@ -230,188 +867,9 @@ export async function sendOrderReceivedEmail({
       subject:
         `Dulce Cafecito Order #${orderNumber} Received ☕`,
 
-      html: `
-        <!DOCTYPE html>
+      html,
 
-        <html>
-          <body
-            style="
-              margin: 0;
-              padding: 0;
-              background: #fff8f4;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #4a2d29;
-            "
-          >
-            <div
-              style="
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 40px 20px;
-              "
-            >
-              <div
-                style="
-                  background: #ffffff;
-                  border: 1px solid #ecd6d6;
-                  border-radius: 24px;
-                  padding: 36px;
-                "
-              >
-                <p
-                  style="
-                    margin: 0;
-                    color: #b76e79;
-                    font-size: 12px;
-                    letter-spacing: 3px;
-                    text-transform: uppercase;
-                  "
-                >
-                  Dulce Cafecito
-                </p>
-
-                <h1
-                  style="
-                    margin: 16px 0 0;
-                    font-size: 30px;
-                  "
-                >
-                  Order Received! ☕
-                </h1>
-
-                <p
-                  style="
-                    margin: 18px 0 0;
-                    line-height: 1.7;
-                  "
-                >
-                  Hi ${safeCustomerName},
-                  we received your order
-                  <strong>
-                    #${orderNumber}
-                  </strong>.
-                </p>
-
-                <p
-                  style="
-                    margin: 8px 0 0;
-                    line-height: 1.7;
-                    color: #76534e;
-                  "
-                >
-                  We'll let you know when
-                  Dulce Cafecito confirms it.
-                </p>
-
-                <div
-                  style="
-                    margin: 28px 0;
-                    padding: 20px;
-                    border-radius: 16px;
-                    background: #fff8f4;
-                  "
-                >
-                  <p
-                    style="
-                      margin: 0 0 8px;
-                    "
-                  >
-                    <strong>
-                      Pickup
-                    </strong>
-                  </p>
-
-                  <p
-                    style="
-                      margin: 0 0 6px;
-                    "
-                  >
-                    ${formattedDate}
-                  </p>
-
-                  <p
-                    style="
-                      margin: 0 0 16px;
-                    "
-                  >
-                    ${formattedTime}
-                  </p>
-
-                  <p
-                    style="
-                      margin: 0 0 6px;
-                    "
-                  >
-                    <strong>
-                      Total:
-                    </strong>
-
-                    ${formattedTotal}
-                  </p>
-
-                  <p
-                    style="
-                      margin: 0;
-                    "
-                  >
-                    <strong>
-                      Payment:
-                    </strong>
-
-                    ${safePaymentMethod}
-                  </p>
-                </div>
-
-                <p
-                  style="
-                    line-height: 1.7;
-                    color: #76534e;
-                  "
-                >
-                  The exact pickup address will
-                  appear on your secure order page
-                  after your order is confirmed.
-                </p>
-
-                <div
-                  style="
-                    margin-top: 30px;
-                    text-align: center;
-                  "
-                >
-                  <a
-                    href="${orderUrl}"
-                    style="
-                      display: inline-block;
-                      padding: 14px 26px;
-                      border-radius: 999px;
-                      background: #8e4d56;
-                      color: #ffffff;
-                      text-decoration: none;
-                      font-weight: 600;
-                    "
-                  >
-                    View My Order
-                  </a>
-                </div>
-
-                <p
-                  style="
-                    margin-top: 30px;
-                    font-size: 12px;
-                    line-height: 1.6;
-                    color: #94716b;
-                  "
-                >
-                  Keep this email so you can
-                  return to your order status
-                  and pickup details later.
-                </p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
+      text,
     });
 
   if (error) {
@@ -432,14 +890,18 @@ export async function sendOrderStatusEmail({
   pickupTime,
   status,
 }: OrderStatusEmailProps) {
-  if (!process.env.RESEND_API_KEY) {
+  if (
+    !process.env.RESEND_API_KEY
+  ) {
     throw new Error(
       "RESEND_API_KEY is not configured."
     );
   }
 
   const orderUrl =
-    `${appUrl}/order-confirmation/${confirmationToken}`;
+    `${appUrl}/order-confirmation/${encodeURIComponent(
+      confirmationToken
+    )}`;
 
   const content =
     getStatusEmailContent(
@@ -477,6 +939,96 @@ export async function sendOrderStatusEmail({
       content.buttonText
     );
 
+  const html =
+    renderBrandEmail({
+      preheader:
+        content.subject,
+
+      eyebrow:
+        content.eyebrow,
+
+      heading:
+        safeHeading,
+
+      badgeText:
+        content.badgeText,
+
+      badgeBackground:
+        content.badgeBackground,
+
+      badgeColor:
+        content.badgeColor,
+
+      introHtml: `
+        Hi <strong>${safeCustomerName}</strong>,
+        ${safeMessage}
+      `,
+
+      detailsHtml: `
+        ${detailRow(
+          "Order",
+          `#${orderNumber}`
+        )}
+
+        ${detailRow(
+          "Pickup Date",
+          formattedDate
+        )}
+
+        ${detailRow(
+          "Pickup Time",
+          formattedTime
+        )}
+      `,
+
+      noteHtml:
+        status ===
+        "confirmed"
+          ? `
+            Your private pickup location and pickup
+            instructions are now available on your
+            secure order page.
+          `
+          : status ===
+              "ready"
+            ? `
+              Please check your secure order page
+              before heading to pickup so you have
+              the latest address and instructions.
+            `
+            : `
+              Your secure order page will remain
+              available so you can review the order
+              details.
+            `,
+
+      buttonUrl:
+        orderUrl,
+
+      buttonText:
+        safeButtonText,
+
+      footerText:
+        "This secure link lets you return to your order status and pickup details.",
+    });
+
+  const text = `
+Dulce Cafecito
+
+${content.heading}
+Order #${orderNumber}
+
+Hi ${customerName},
+
+${content.message}
+
+Pickup Date: ${formattedDate}
+Pickup Time: ${formattedTime}
+
+${content.buttonText}:
+${orderUrl}
+  `.trim();
+
   const {
     data,
     error,
@@ -492,148 +1044,9 @@ export async function sendOrderStatusEmail({
       subject:
         content.subject,
 
-      html: `
-        <!DOCTYPE html>
+      html,
 
-        <html>
-          <body
-            style="
-              margin: 0;
-              padding: 0;
-              background: #fff8f4;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #4a2d29;
-            "
-          >
-            <div
-              style="
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 40px 20px;
-              "
-            >
-              <div
-                style="
-                  background: #ffffff;
-                  border: 1px solid #ecd6d6;
-                  border-radius: 24px;
-                  padding: 36px;
-                "
-              >
-                <p
-                  style="
-                    margin: 0;
-                    color: #b76e79;
-                    font-size: 12px;
-                    letter-spacing: 3px;
-                    text-transform: uppercase;
-                  "
-                >
-                  Dulce Cafecito
-                </p>
-
-                <h1
-                  style="
-                    margin: 16px 0 0;
-                    font-size: 30px;
-                  "
-                >
-                  ${safeHeading}
-                </h1>
-
-                <p
-                  style="
-                    margin: 18px 0 0;
-                    line-height: 1.7;
-                  "
-                >
-                  Hi ${safeCustomerName},
-                </p>
-
-                <p
-                  style="
-                    margin: 8px 0 0;
-                    line-height: 1.7;
-                    color: #76534e;
-                  "
-                >
-                  ${safeMessage}
-                </p>
-
-                <div
-                  style="
-                    margin: 28px 0;
-                    padding: 20px;
-                    border-radius: 16px;
-                    background: #fff8f4;
-                  "
-                >
-                  <p
-                    style="
-                      margin: 0 0 8px;
-                    "
-                  >
-                    <strong>
-                      Order #${orderNumber}
-                    </strong>
-                  </p>
-
-                  <p
-                    style="
-                      margin: 0 0 6px;
-                    "
-                  >
-                    ${formattedDate}
-                  </p>
-
-                  <p
-                    style="
-                      margin: 0;
-                    "
-                  >
-                    ${formattedTime}
-                  </p>
-                </div>
-
-                <div
-                  style="
-                    margin-top: 30px;
-                    text-align: center;
-                  "
-                >
-                  <a
-                    href="${orderUrl}"
-                    style="
-                      display: inline-block;
-                      padding: 14px 26px;
-                      border-radius: 999px;
-                      background: #8e4d56;
-                      color: #ffffff;
-                      text-decoration: none;
-                      font-weight: 600;
-                    "
-                  >
-                    ${safeButtonText}
-                  </a>
-                </div>
-
-                <p
-                  style="
-                    margin-top: 30px;
-                    font-size: 12px;
-                    line-height: 1.6;
-                    color: #94716b;
-                  "
-                >
-                  This secure link lets you
-                  return to your order status
-                  and pickup details.
-                </p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
+      text,
     });
 
   if (error) {
@@ -645,17 +1058,6 @@ export async function sendOrderStatusEmail({
   return data;
 }
 
-type NewOrderAdminEmailProps = {
-  orderNumber: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  pickupDate: string;
-  pickupTime: string;
-  totalCents: number;
-  paymentMethod: string;
-};
-
 export async function sendNewOrderAdminEmail({
   orderNumber,
   customerName,
@@ -666,8 +1068,9 @@ export async function sendNewOrderAdminEmail({
   totalCents,
   paymentMethod,
 }: NewOrderAdminEmailProps) {
-  const ownerEmail = 
-    process.env.OWNER_NOTIFICATION_EMAIL;
+  const ownerEmail =
+    process.env
+      .OWNER_NOTIFICATION_EMAIL;
 
   if (!ownerEmail) {
     console.warn(
@@ -677,7 +1080,9 @@ export async function sendNewOrderAdminEmail({
     return null;
   }
 
-  if (!process.env.RESEND_API_KEY) {
+  if (
+    !process.env.RESEND_API_KEY
+  ) {
     throw new Error(
       "RESEND_API_KEY is not configured."
     );
@@ -697,9 +1102,9 @@ export async function sendNewOrderAdminEmail({
     );
 
   const formattedTotal =
-    `$${(
-      totalCents / 100
-    ).toFixed(2)}`;
+    formatMoney(
+      totalCents
+    );
 
   const safeCustomerName =
     escapeHtml(
@@ -723,7 +1128,107 @@ export async function sendNewOrderAdminEmail({
       )
     );
 
-  const { data, error } =
+  const html =
+    renderBrandEmail({
+      preheader:
+        `New Dulce Cafecito order #${orderNumber}.`,
+
+      eyebrow:
+        "Dulce Cafecito Admin",
+
+      heading:
+        "New Order!",
+
+      badgeText:
+        `Order #${orderNumber}`,
+
+      badgeBackground:
+        "#f9e5e8",
+
+      badgeColor:
+        "#8e4d56",
+
+      introHtml: `
+        A new order was just placed.
+        Review the customer and pickup details below.
+      `,
+
+      detailsHtml: `
+        ${detailRow(
+          "Customer",
+          safeCustomerName
+        )}
+
+        ${detailRow(
+          "Email",
+          safeCustomerEmail
+        )}
+
+        ${detailRow(
+          "Phone",
+          safeCustomerPhone
+        )}
+
+        ${detailRow(
+          "Pickup",
+          `${formattedDate}<br />${formattedTime}`
+        )}
+
+        ${detailRow(
+          "Total",
+          formattedTotal
+        )}
+
+        ${detailRow(
+          "Payment",
+          safePayment
+        )}
+      `,
+
+      noteHtml: `
+        <strong
+          style="
+            color: #4a2d29;
+          "
+        >
+          Admin action needed
+        </strong>
+        <br />
+        Open the dashboard to review and confirm
+        this order.
+      `,
+
+      buttonUrl:
+        adminUrl,
+
+      buttonText:
+        "Manage Order",
+
+      footerText:
+        "Sign in to the Dulce Cafecito admin dashboard to confirm and manage this order.",
+    });
+
+  const text = `
+Dulce Cafecito Admin
+
+New Order #${orderNumber}
+
+Customer: ${customerName}
+Email: ${customerEmail}
+Phone: ${customerPhone}
+
+Pickup: ${formattedDate} at ${formattedTime}
+Total: ${formattedTotal}
+Payment: ${paymentLabel(paymentMethod)}
+
+Manage order:
+${adminUrl}
+  `.trim();
+
+  const {
+    data,
+    error,
+  } =
     await resend.emails.send({
       from:
         fromEmail,
@@ -735,160 +1240,9 @@ export async function sendNewOrderAdminEmail({
       subject:
         `New Dulce Cafecito Order #${orderNumber} ☕`,
 
-      html: `
-        <!DOCTYPE html>
+      html,
 
-        <html>
-          <body
-            style="
-              margin: 0;
-              padding: 0;
-              background: #fff8f4;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #4a2d29;
-            "
-          >
-            <div
-              style="
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 40px 20px;
-              "
-            >
-              <div
-                style="
-                  background: #ffffff;
-                  border: 1px solid #ecd6d6;
-                  border-radius: 24px;
-                  padding: 36px;
-                "
-              >
-                <p
-                  style="
-                    margin: 0;
-                    color: #b76e79;
-                    font-size: 12px;
-                    letter-spacing: 3px;
-                    text-transform: uppercase;
-                  "
-                >
-                  Dulce Cafecito Admin
-                </p>
-
-                <h1
-                  style="
-                    margin: 16px 0 0;
-                    font-size: 30px;
-                  "
-                >
-                  New Order! ☕
-                </h1>
-
-                <p
-                  style="
-                    margin: 18px 0 0;
-                    line-height: 1.7;
-                  "
-                >
-                  Order
-                  <strong>
-                    #${orderNumber}
-                  </strong>
-                  was just placed.
-                </p>
-
-                <div
-                  style="
-                    margin: 28px 0;
-                    padding: 20px;
-                    border-radius: 16px;
-                    background: #fff8f4;
-                  "
-                >
-                  <p>
-                    <strong>
-                      Customer:
-                    </strong>
-                    ${safeCustomerName}
-                  </p>
-
-                  <p>
-                    <strong>
-                      Email:
-                    </strong>
-                    ${safeCustomerEmail}
-                  </p>
-
-                  <p>
-                    <strong>
-                      Phone:
-                    </strong>
-                    ${safeCustomerPhone}
-                  </p>
-
-                  <p>
-                    <strong>
-                      Pickup:
-                    </strong>
-                    ${formattedDate}
-                    at
-                    ${formattedTime}
-                  </p>
-
-                  <p>
-                    <strong>
-                      Total:
-                    </strong>
-                    ${formattedTotal}
-                  </p>
-
-                  <p>
-                    <strong>
-                      Payment:
-                    </strong>
-                    ${safePayment}
-                  </p>
-                </div>
-
-                <div
-                  style="
-                    margin-top: 30px;
-                    text-align: center;
-                  "
-                >
-                  <a
-                    href="${adminUrl}"
-                    style="
-                      display: inline-block;
-                      padding: 14px 26px;
-                      border-radius: 999px;
-                      background: #8e4d56;
-                      color: #ffffff;
-                      text-decoration: none;
-                      font-weight: 600;
-                    "
-                  >
-                    Manage Order
-                  </a>
-                </div>
-
-                <p
-                  style="
-                    margin-top: 30px;
-                    font-size: 12px;
-                    line-height: 1.6;
-                    color: #94716b;
-                  "
-                >
-                  Sign in to the Dulce Cafecito admin
-                  dashboard to confirm and manage this
-                  order.
-                </p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
+      text,
     });
 
   if (error) {

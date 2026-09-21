@@ -98,8 +98,8 @@ export async function PATCH(
     } = await adminClient
       .from("orders")
       .select(
-        "id, payment_status, paid_at"
-      )
+  "id, payment_status, paid_at, order_status"
+)
       .eq("id", id)
       .maybeSingle();
 
@@ -117,7 +117,20 @@ export async function PATCH(
         }
       );
     }
-
+if (
+  order.order_status ===
+  "cancelled"
+) {
+  return NextResponse.json(
+    {
+      error:
+        "Payment status cannot be changed for a cancelled order.",
+    },
+    {
+      status: 409,
+    }
+  );
+}
     if (
       order.payment_status ===
       body.paymentStatus

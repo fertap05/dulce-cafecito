@@ -1,3 +1,4 @@
+import WebsiteMediaManager from "@/components/admin/WebsiteMediaManager";
 import BusinessSettingsManager from "@/components/admin/BusinessSettingsManager";
 import PrivatePickupSettingsManager from "@/components/admin/PrivatePickupSettingsManager";
 import PushNotificationSettings from "@/components/admin/PushNotificationSettings";
@@ -34,6 +35,18 @@ type SettingsRow = {
 
   about_highlight_title: string;
   about_highlight_text: string;
+
+  logo_image_path:
+  | string
+  | null;
+
+hero_image_path:
+  | string
+  | null;
+
+about_image_path:
+  | string
+  | null;
 };
 
 type PrivateSettingsRow = {
@@ -100,7 +113,10 @@ export default async function AdminSettingsPage() {
         about_paragraph_1,
         about_paragraph_2,
         about_highlight_title,
-        about_highlight_text
+        about_highlight_text,
+        logo_image_path,
+        hero_image_path,
+        about_image_path
       `)
       .eq("id", 1)
       .maybeSingle(),
@@ -203,6 +219,19 @@ export default async function AdminSettingsPage() {
           settingsData as SettingsRow
         }
       />
+
+      <WebsiteMediaManager
+  initialMedia={{
+    logo_image_path:
+      settingsData.logo_image_path,
+
+    hero_image_path:
+      settingsData.hero_image_path,
+
+    about_image_path:
+      settingsData.about_image_path,
+  }}
+/>
 
       <PrivatePickupSettingsManager
         initialSettings={
