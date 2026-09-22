@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -181,6 +181,15 @@ export default function AdminLoginPage() {
               className="mt-2 w-full rounded-2xl border border-[#ecd6d6] px-4 py-3 outline-none focus:border-[#8e4d56] disabled:opacity-60"
             />
           </div>
+
+<div className="flex justify-end">
+  <Link
+    href="/admin/forgot-password"
+    className="text-sm font-medium text-[#8e4d56] hover:underline"
+  >
+    Forgot password?
+  </Link>
+</div>
 
           {errorMessage && (
             <div className="rounded-2xl bg-[#f9e5e8] p-4 text-sm text-[#8e4d56]">
