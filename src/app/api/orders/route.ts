@@ -273,6 +273,36 @@ export async function POST(
           )
         );
 
+      const {
+        data: allowedValues,
+        error: allowedValuesError,
+      } = await supabase
+        .from(
+          "product_option_values"
+        )
+        .select(
+          "option_value_id"
+        )
+        .eq(
+          "product_id",
+          product.id
+        );
+
+      if (allowedValuesError) {
+        throw allowedValuesError;
+      }
+
+      const allowedValueIds =
+        new Set(
+          (
+            allowedValues ??
+            []
+          ).map(
+            (assignment) =>
+              assignment.option_value_id
+          )
+        );
+
       const selectedOptions: {
         groupId: number;
         valueId: number;
@@ -289,6 +319,9 @@ export async function POST(
         if (
           !assignedGroupIds.has(
             requestedOption.groupId
+          ) ||
+          !allowedValueIds.has(
+            requestedOption.valueId
           )
         ) {
           return NextResponse.json(
