@@ -33,9 +33,29 @@ type Product = {
   isAvailable: boolean;
 };
 
+type CustomizationValue = {
+  id: number;
+  name: string;
+  priceDeltaCents: number;
+};
+
+type CustomizationGroup = {
+  id: number;
+  name: string;
+  selectionType:
+    | "single"
+    | "multiple";
+  assigned: boolean;
+  isRequired: boolean;
+  enabledValueIds: number[];
+  values: CustomizationValue[];
+};
+
 type ProductEditFormProps = {
   product: Product;
   categories: Category[];
+  customizationGroups:
+    CustomizationGroup[];
 };
 
 const MAX_IMAGE_SIZE =
@@ -50,6 +70,7 @@ const allowedImageTypes = [
 export default function ProductEditForm({
   product,
   categories,
+  customizationGroups,
 }: ProductEditFormProps) {
   const router =
     useRouter();
@@ -108,6 +129,13 @@ export default function ProductEditForm({
     string | null
   >(
     product.imagePath
+  );
+
+  const [
+    customizations,
+    setCustomizations,
+  ] = useState(
+    customizationGroups
   );
 
   const [
@@ -367,6 +395,58 @@ setImagePath(
         setErrorMessage(
           result.error ??
             "Could not update product."
+        );
+
+        setSaving(false);
+
+        return;
+      }
+
+      const customizationResponse =
+        await fetch(
+          `/api/admin/products/${product.id}/customizations`,
+          {
+            method:
+              "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                groups:
+                  customizations
+                    .filter(
+                      (group) =>
+                        group.assigned
+                    )
+                    .map(
+                      (group) => ({
+                        groupId:
+                          group.id,
+
+                        isRequired:
+                          group.isRequired,
+
+                        enabledValueIds:
+                          group.enabledValueIds,
+                      })
+                    ),
+              }),
+          }
+        );
+
+      const customizationResult =
+        await customizationResponse.json();
+
+      if (
+        !customizationResponse.ok
+      ) {
+        setErrorMessage(
+          customizationResult.error ??
+            "Product details saved, but customization options could not be updated."
         );
 
         setSaving(false);
@@ -655,6 +735,265 @@ setImagePath(
           </select>
         </div>
       </div>
+
+      {/* Customization Options */}
+      <section className="mt-8 overflow-hidden rounded-3xl border border-[#ecd6d6] bg-[#fff8f7]">
+        <div className="border-b border-[#ecd6d6] px-6 py-5">
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#b76e79]">
+            Drink Customizations
+          </p>
+
+          <h2 className="mt-1 text-xl font-semibold">
+            Customer Options
+          </h2>
+
+          <p className="mt-1 text-sm leading-6 text-[#94716b]">
+            Choose which option groups and individual choices are available for this drink.
+          </p>
+        </div>
+
+        <div className="space-y-5 p-6">
+          {customizations.length ===
+          0 ? (
+            <p className="text-sm text-[#94716b]">
+              No customization
+              groups are currently
+              available.
+            </p>
+          ) : (
+            customizations.map(
+              (group) => (
+                <div
+                  key={
+                    group.id
+                  }
+                  className="rounded-2xl border border-[#ecd6d6] bg-white p-5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold">
+                        {
+                          group.name
+                        }
+                      </p>
+
+                      <p className="mt-1 text-xs text-[#94716b]">
+                        {
+                          group.selectionType ===
+                          "multiple"
+                            ? "Customers may choose multiple."
+                            : "Customers choose one option."
+                        }
+                      </p>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={
+                          group.assigned
+                        }
+                        onChange={(
+                          event
+                        ) => {
+                          const enabled =
+                            event
+                              .target
+                              .checked;
+
+                          setCustomizations(
+                            (
+                              current
+                            ) =>
+                              current.map(
+                                (
+                                  candidate
+                                ) =>
+                                  candidate.id ===
+                                  group.id
+                                    ? {
+                                        ...candidate,
+                                        assigned:
+                                          enabled,
+                                        isRequired:
+                                          enabled
+                                            ? candidate.isRequired
+                                            : false,
+                                        enabledValueIds:
+                                          enabled &&
+                                          candidate.enabledValueIds.length ===
+                                            0
+                                            ? candidate.values.map(
+                                                (
+                                                  value
+                                                ) =>
+                                                  value.id
+                                              )
+                                            : candidate.enabledValueIds,
+                                      }
+                                    : candidate
+                              )
+                          );
+                        }}
+                        className="h-5 w-5"
+                      />
+
+                      Enabled
+                    </label>
+                  </div>
+
+                  {group.assigned && (
+                    <>
+                      <div className="mt-4 border-t border-[#f0dddd] pt-4">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={
+                              group.isRequired
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              setCustomizations(
+                                (
+                                  current
+                                ) =>
+                                  current.map(
+                                    (
+                                      candidate
+                                    ) =>
+                                      candidate.id ===
+                                      group.id
+                                        ? {
+                                            ...candidate,
+                                            isRequired:
+                                              event
+                                                .target
+                                                .checked,
+                                          }
+                                        : candidate
+                                  )
+                              )
+                            }
+                            className="h-4 w-4"
+                          />
+
+                          Require customers to choose from this group
+                        </label>
+                      </div>
+
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        {group.values.map(
+                          (
+                            value
+                          ) => {
+                            const enabled =
+                              group.enabledValueIds.includes(
+                                value.id
+                              );
+
+                            return (
+                              <label
+                                key={
+                                  value.id
+                                }
+                                className="flex items-center justify-between gap-3 rounded-2xl border border-[#ecd6d6] px-4 py-3"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      enabled
+                                    }
+                                    onChange={(
+                                      event
+                                    ) => {
+                                      setCustomizations(
+                                        (
+                                          current
+                                        ) =>
+                                          current.map(
+                                            (
+                                              candidate
+                                            ) => {
+                                              if (
+                                                candidate.id !==
+                                                group.id
+                                              ) {
+                                                return candidate;
+                                              }
+
+                                              const nextIds =
+                                                event
+                                                  .target
+                                                  .checked
+                                                  ? [
+                                                      ...candidate.enabledValueIds,
+                                                      value.id,
+                                                    ]
+                                                  : candidate.enabledValueIds.filter(
+                                                      (
+                                                        id
+                                                      ) =>
+                                                        id !==
+                                                        value.id
+                                                    );
+
+                                              return {
+                                                ...candidate,
+                                                enabledValueIds:
+                                                  Array.from(
+                                                    new Set(
+                                                      nextIds
+                                                    )
+                                                  ),
+                                              };
+                                            }
+                                          )
+                                      );
+                                    }}
+                                    className="h-4 w-4"
+                                  />
+
+                                  <span className="text-sm">
+                                    {
+                                      value.name
+                                    }
+                                  </span>
+                                </div>
+
+                                {value.priceDeltaCents >
+                                  0 && (
+                                  <span className="text-xs font-medium text-[#8e4d56]">
+                                    +$
+                                    {(
+                                      value.priceDeltaCents /
+                                      100
+                                    ).toFixed(
+                                      2
+                                    )}
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          }
+                        )}
+                      </div>
+
+                      {group.enabledValueIds.length ===
+                        0 && (
+                        <p className="mt-3 text-xs text-[#8e4d56]">
+                          Enable at least one option or disable this group.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            )
+          )}
+        </div>
+      </section>
 
       {/* Availability */}
       <div className="mt-8 rounded-2xl bg-[#fff8f7] p-5">
