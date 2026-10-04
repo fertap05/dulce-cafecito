@@ -188,31 +188,13 @@ export async function PUT(
 
       for (const group of groups) {
         if (
-          group.isRequired &&
           group.enabledValueIds
             .length === 0
         ) {
           return NextResponse.json(
             {
               error:
-                "Required customization groups need at least one option.",
-            },
-            { status: 400 }
-          );
-        }
-
-        if (
-          groupById.get(
-            group.groupId
-          )?.selection_type ===
-            "single" &&
-          group.enabledValueIds
-            .length === 0
-        ) {
-          return NextResponse.json(
-            {
-              error:
-                "Enabled single-choice groups need at least one option.",
+                "Enabled customization groups need at least one option.",
             },
             { status: 400 }
           );
