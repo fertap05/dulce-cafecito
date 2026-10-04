@@ -331,6 +331,81 @@ export async function POST(request: Request) {
 
           throw mappingError;
         }
+
+        const assignedGroupIds =
+          mappings.map(
+            (mapping) =>
+              mapping.option_group_id
+          );
+
+        const {
+          data: optionValues,
+          error: optionValuesError,
+        } = await adminClient
+          .from("option_values")
+          .select(
+            "id, option_group_id"
+          )
+          .in(
+            "option_group_id",
+            assignedGroupIds
+          )
+          .eq(
+            "is_active",
+            true
+          );
+
+        if (optionValuesError) {
+          await adminClient
+            .from("products")
+            .delete()
+            .eq("id", product.id);
+
+          throw optionValuesError;
+        }
+
+        const valueMappings =
+          (
+            optionValues ??
+            []
+          ).map(
+            (value) => ({
+              product_id:
+                product.id,
+              option_value_id:
+                value.id,
+            })
+          );
+
+        if (
+          valueMappings.length >
+          0
+        ) {
+          const {
+            error:
+              valueMappingError,
+          } = await adminClient
+            .from(
+              "product_option_values"
+            )
+            .insert(
+              valueMappings
+            );
+
+          if (
+            valueMappingError
+          ) {
+            await adminClient
+              .from("products")
+              .delete()
+              .eq(
+                "id",
+                product.id
+              );
+
+            throw valueMappingError;
+          }
+        }
       }
     }
 
