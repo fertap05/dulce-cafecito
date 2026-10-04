@@ -62,3 +62,8 @@ on public.product_option_values
 for select
 to anon, authenticated
 using (true);
+
+
+grant select
+on public.product_option_values
+to anon, authenticated;
