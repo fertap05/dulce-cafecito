@@ -195,6 +195,28 @@ export async function getMenuItemById(
       );
     }
 
+    const {
+      data: valueAssignments,
+      error: valueAssignmentsError,
+    } = await supabase
+      .from("product_option_values")
+      .select("option_value_id")
+      .eq("product_id", product.id);
+
+    if (valueAssignmentsError) {
+      throw new Error(
+        `Could not load product option values: ${valueAssignmentsError.message}`
+      );
+    }
+
+    const enabledValueIds =
+      new Set(
+        (valueAssignments ?? []).map(
+          (assignment) =>
+            assignment.option_value_id
+        )
+      );
+
     optionGroups = assignments
       .map((assignment) => {
         const group = groups.find(
@@ -218,7 +240,8 @@ export async function getMenuItemById(
           values: values
             .filter(
               (value) =>
-                value.option_group_id === group.id
+                value.option_group_id === group.id &&
+                enabledValueIds.has(value.id)
             )
             .map((value) => ({
               id: value.id,

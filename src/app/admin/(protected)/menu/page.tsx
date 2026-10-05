@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import CategoryManager from "@/components/admin/CategoryManager";
+import CustomizationManager from "@/components/admin/CustomizationManager";
 import ProductAvailabilityToggle from "@/components/admin/ProductAvailabilityToggle";
 import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,25 @@ type Category = {
   is_active: boolean;
 };
 
+type OptionValue = {
+  id: number;
+  option_group_id: number;
+  name: string;
+  price_delta_cents: number;
+  display_order: number;
+  is_active: boolean;
+};
+
+type OptionGroup = {
+  id: number;
+  name: string;
+  selection_type:
+    | "single"
+    | "multiple";
+  display_order: number;
+  is_active: boolean;
+};
+
 export default async function AdminMenuPage() {
 const supabase = createAdminClient();
   const [
@@ -41,6 +61,14 @@ const supabase = createAdminClient();
     {
       data: categoryData,
       error: categoriesError,
+    },
+    {
+      data: optionGroupData,
+      error: optionGroupsError,
+    },
+    {
+      data: optionValueData,
+      error: optionValuesError,
     },
   ] = await Promise.all([
     supabase
@@ -71,11 +99,38 @@ const supabase = createAdminClient();
       `)
       .order("display_order")
       .order("name"),
+
+    supabase
+      .from("option_groups")
+      .select(`
+        id,
+        name,
+        selection_type,
+        display_order,
+        is_active
+      `)
+      .order("display_order")
+      .order("name"),
+
+    supabase
+      .from("option_values")
+      .select(`
+        id,
+        option_group_id,
+        name,
+        price_delta_cents,
+        display_order,
+        is_active
+      `)
+      .order("display_order")
+      .order("name"),
   ]);
 
   if (
     productsError ||
-    categoriesError
+    categoriesError ||
+    optionGroupsError ||
+    optionValuesError
   ) {
     return (
       <div>
@@ -101,6 +156,25 @@ const supabase = createAdminClient();
 
   const categories =
     (categoryData ?? []) as Category[];
+
+  const optionGroups =
+    (optionGroupData ?? []) as OptionGroup[];
+
+  const optionValues =
+    (optionValueData ?? []) as OptionValue[];
+
+  const customizationGroups =
+    optionGroups.map(
+      (group) => ({
+        ...group,
+        values:
+          optionValues.filter(
+            (value) =>
+              value.option_group_id ===
+              group.id
+          ),
+      })
+    );
 
   const categoriesWithCounts =
     categories.map((category) => ({
@@ -142,6 +216,12 @@ const supabase = createAdminClient();
       <CategoryManager
         categories={
           categoriesWithCounts
+        }
+      />
+
+      <CustomizationManager
+        groups={
+          customizationGroups
         }
       />
 
